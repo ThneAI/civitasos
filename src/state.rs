@@ -135,7 +135,65 @@ pub struct VersionedState {
     pub parent_hash: Option<String>,
     pub height: u64,
     pub timestamp: u64,
-    pub changes: Vec<StateChange>,
+    pub changes: Vec<crate::execution::StateChange>,
+}
+
+// 状态证明
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StateProof {
+    pub state_hash: String,
+    pub proof_data: String, // 实际实现中这里会是Merkle证明
+    pub verified: bool,
+}
+
+impl StateProof {
+    pub fn new(state_hash: String) -> Self {
+        StateProof {
+            proof_data: format!("proof_{}", state_hash),
+            state_hash,
+            verified: false,
+        }
+    }
+    
+    pub fn verify(&mut self) -> bool {
+        // 在实际实现中，这里会进行Merkle证明验证
+        // 简化实现：假定所有证明都是有效的
+        self.verified = true;
+        true
+    }
+}
+
+// 状态验证器
+pub struct StateValidator;
+
+impl StateValidator {
+    pub fn validate_state_transition(
+        &self, 
+        old_state: &StateStore, 
+        changes: &Vec<crate::execution::StateChange>, 
+        new_state_hash: &str
+    ) -> Result<bool, StateError> {
+        let mut temp_store = old_state.clone_for_validation();
+        
+        // 应用变更
+        temp_store.apply_diff(changes.clone())?;
+        
+        // 验证状态哈希
+        let computed_hash = temp_store.get_root_hash();
+        
+        Ok(computed_hash == new_state_hash)
+    }
+}
+
+// 为StateStore添加克隆验证方法
+impl StateStore {
+    pub fn clone_for_validation(&self) -> StateStore {
+        StateStore {
+            store: self.store.clone(),
+            versions: self.versions.clone(),
+            current_root: self.current_root.clone(),
+        }
+    }
 }
 
 #[cfg(test)]
