@@ -17,7 +17,7 @@ pub struct ConstitutionalRule {
 }
 
 // 治理提案
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct GovernanceProposal {
     pub id: String,
     pub title: String,
@@ -37,7 +37,7 @@ pub struct GovernanceProposal {
     pub proposer_stake: u64,          // 提案者抵押
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum GovernanceProposalType {
     ConstitutionalAmendment(String), // 宪法修正案
     ParameterChange(String),         // 参数变更

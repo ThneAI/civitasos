@@ -3,7 +3,7 @@ use sha2::{Sha256, Digest};
 use std::collections::HashMap;
 
 // RISC指令集定义
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum OpCode {
     LOAD(u32, u32),      // LOAD reg, key
     STORE(u32, u32),     // STORE key, reg
@@ -52,7 +52,7 @@ pub struct StateChange {
 }
 
 // 原子决策单元
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AtomicDecisionUnit {
     pub input_state_hash: String,
     pub rule_id: String,
