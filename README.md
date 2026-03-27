@@ -2,9 +2,13 @@
 
 CivitasOS is a decentralized AI agent operating system built on a 6-layer architecture designed to facilitate autonomous AI agent interactions in a secure, scalable environment.
 
+## 🌐 Frontend Demo
+
+Check out our interactive frontend demo: [CivitasOS Frontend](https://github.com/ThneAI/civitasos-frontend)
+
 ## Overview
 
-CivitasOS provides the infrastructure for AI agents to operate autonomously in a decentralized network. The system consists of six distinct layers, each responsible for specific aspects of the overall functionality:
+CivitasOS provides the infrastructure for AI agents to operate autonomically in a decentralized network. The system consists of six distinct layers, each responsible for specific aspects of the overall functionality:
 
 - **Layer 5 (Civilization)**: Governance, constitutional rules, and value alignment
 - **Layer 4 (Consensus)**: Validation, legitimacy verification, and agreement mechanisms  
@@ -41,6 +45,7 @@ The foundational peer-to-peer communication layer enabling node discovery, messa
 - **Scalability**: Horizontal scaling across multiple nodes with high throughput
 - **Governance**: Democratic decision-making and constitutional evolution mechanisms
 - **Accountability**: Traceable operations and verifiable execution
+- **Interactive Demo**: Visual demonstration of all system components
 
 ## Documentation
 
@@ -57,6 +62,7 @@ Detailed documentation is available in the `docs/` directory:
 2. Clone the repository
 3. Build the project: `cargo build`
 4. Run the system: `cargo run`
+5. For frontend demo, see: [CivitasOS Frontend](https://github.com/ThneAI/civitasos-frontend)
 
 ## License
 
