@@ -1,70 +1,63 @@
 # CivitasOS
 
-CivitasOS is a civilization-grade operating system for AI agents, designed to create a verifiable, accountable, and human-sovereign collaborative civilization system.
+CivitasOS is a decentralized AI agent operating system built on a 6-layer architecture designed to facilitate autonomous AI agent interactions in a secure, scalable environment.
 
 ## Overview
 
-CivitasOS implements a five-layer architecture:
-- **Layer 5: Civilization Layer** - Constitution, value functions, evolution mechanisms
-- **Layer 4: Consensus Layer** - Validation, signatures, legitimacy confirmation
-- **Layer 3: Execution Layer** - RISC VM, deterministic execution
-- **Layer 2: State Layer** - Merkle DAG, versioned state
-- **Layer 1: Atomic Layer** - ADU, accountability anchoring, proof system
+CivitasOS provides the infrastructure for AI agents to operate autonomously in a decentralized network. The system consists of six distinct layers, each responsible for specific aspects of the overall functionality:
+
+- **Layer 5 (Civilization)**: Governance, constitutional rules, and value alignment
+- **Layer 4 (Consensus)**: Validation, legitimacy verification, and agreement mechanisms  
+- **Layer 3 (Execution)**: Deterministic computation and smart contract execution
+- **Layer 2 (State)**: Immutable state storage and versioning
+- **Layer 1 (Atomic)**: Atomic operations and accountability
+- **Layer 0 (Network)**: Peer-to-peer communication and node discovery
+
+## Architecture
+
+### Layer 5: Civilization Layer
+The topmost layer responsible for governance and constitutional rules. It defines the values, principles, and evolution mechanisms that guide the entire system.
+
+### Layer 4: Consensus Layer
+Implements validation and legitimacy verification mechanisms. Uses advanced consensus algorithms to ensure all participants agree on the state of the system while maintaining security and decentralization.
+
+### Layer 3: Execution Layer
+Provides a deterministic virtual machine environment for executing smart contracts and complex computations. Features gas metering and resource management to ensure fair usage.
+
+### Layer 2: State Layer
+Utilizes Merkle DAG data structures for immutable state storage with versioning capabilities. Enables efficient state synchronization and verification across the network.
+
+### Layer 1: Atomic Layer
+Handles atomic operations and accountability mechanisms. Implements Atomic Data Units (ADU) and accountability anchors to ensure transaction integrity.
+
+### Layer 0: Network Layer
+The foundational peer-to-peer communication layer enabling node discovery, message propagation, and network security. Designed for high-performance and resilience.
 
 ## Features
 
-- Deterministic execution with RISC-style instruction set
-- Verifiable state management with Merkle DAG
-- Accountability anchoring for all actions
-- Three-party model (Responsibility, Value, Risk Subjects)
-- Mathematical security guarantees
+- **6-Layer Architecture**: Comprehensive system design covering all aspects of decentralized AI operation
+- **AI-Agent Centric**: Purpose-built for autonomous AI agents with minimal human intervention
+- **Security & Trust**: Cryptographic verification at every layer with Byzantine fault tolerance
+- **Scalability**: Horizontal scaling across multiple nodes with high throughput
+- **Governance**: Democratic decision-making and constitutional evolution mechanisms
+- **Accountability**: Traceable operations and verifiable execution
 
-## Architecture Highlights
+## Documentation
 
-### Atomic Decision Unit (ADU)
-Each decision is encapsulated in an atomic unit that includes:
-- Input state hash
-- Rule ID
-- Execution trace
-- Output proof
-- Accountability anchor
-- Risk stake
+Detailed documentation is available in the `docs/` directory:
 
-### RISC Execution Engine
-Minimal instruction set for deterministic execution:
-- LOAD, STORE
-- ADD, SUB
-- HASH
-- CMP, JZ, JNZ
-- RETURN, REVERT
-
-### State Management
-- Versioned state storage
-- Merkle DAG for state verification
-- Immutable historical records
+- [Architecture](docs/ARCHITECTURE.md) - Complete architectural overview
+- [API Reference](docs/API_REFERENCE.md) - Full API documentation
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) - Setup and deployment instructions
+- [Usage Guide](docs/USAGE_GUIDE.md) - How to develop and use AI agents
 
 ## Getting Started
 
-```bash
-# Clone the repository
-git clone https://github.com/ThneAI/civitasos.git
-
-# Build the project
-cd civitasos
-cargo build
-
-# Run tests
-cargo test
-```
-
-## MVP Development Status
-
-Current progress (Week 1-2):
-- ✅ Core execution engine with RISC instruction set
-- ✅ State management with Merkle DAG
-- ✅ Deterministic execution with trace hashing
-- ✅ Basic tests and demo functionality
+1. Ensure you have Rust 1.70+ installed
+2. Clone the repository
+3. Build the project: `cargo build`
+4. Run the system: `cargo run`
 
 ## License
 
-MIT
+Apache 2.0

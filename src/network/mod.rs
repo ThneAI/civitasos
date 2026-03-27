@@ -7,13 +7,13 @@ use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::broadcast;
 
-pub mod node;
-pub mod message;
 pub mod discovery;
+pub mod message;
+pub mod node;
 
-pub use node::*;
-pub use message::*;
 pub use discovery::*;
+pub use message::*;
+pub use node::*;
 
 use crate::execution::AtomicDecisionUnit;
 use crate::governance::GovernanceProposal;
@@ -94,7 +94,7 @@ pub struct NetworkService {
 impl NetworkService {
     pub fn new(config: NetworkConfig) -> Self {
         let (message_tx, message_rx) = broadcast::channel(100);
-        
+
         NetworkService {
             config,
             connections: HashMap::new(),
@@ -116,7 +116,7 @@ impl NetworkService {
         loop {
             let (socket, addr) = listener.accept().await?;
             println!("New connection from: {}", addr);
-            
+
             // Handle the connection in a separate task
             self.handle_connection(socket, addr).await;
         }
@@ -146,13 +146,20 @@ impl NetworkService {
     }
 
     /// Broadcast a message to all connected peers
-    pub async fn broadcast_message(&self, message: NetworkMessage) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn broadcast_message(
+        &self,
+        message: NetworkMessage,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         self.message_tx.send(message)?;
         Ok(())
     }
 
     /// Send a message to a specific peer
-    pub async fn send_message_to_peer(&mut self, peer_id: &str, _message: NetworkMessage) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn send_message_to_peer(
+        &mut self,
+        peer_id: &str,
+        _message: NetworkMessage,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // TODO: Implement peer-specific message sending
         println!("Sending message to peer: {}", peer_id);
         Ok(())
@@ -196,7 +203,7 @@ mod tests {
     async fn test_network_service_creation() {
         let config = NetworkConfig::default();
         let service = NetworkService::new(config);
-        
+
         assert_eq!(service.node_registry.len(), 0);
         assert_eq!(service.connections.len(), 0);
     }

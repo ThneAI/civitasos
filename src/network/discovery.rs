@@ -1,14 +1,12 @@
 //! Node discovery for the network layer
 
+use rand::seq::SliceRandom;
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
-use tokio::time::{sleep, timeout};
 use tokio::sync::Mutex;
-use serde::{Deserialize, Serialize};
-use rand::seq::SliceRandom;
 
-use super::{NodeInfo, DiscoveryRequest, DiscoveryResponse, NodeDescriptor};
+use super::{DiscoveryRequest, DiscoveryResponse, NodeInfo};
 
 /// Discovery protocol constants
 const DISCOVERY_INTERVAL: Duration = Duration::from_secs(30);
@@ -60,53 +58,59 @@ impl NodeDiscovery {
 
     /// Initialize discovery by connecting to boot nodes
     pub async fn initialize(&self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Initializing node discovery with {} boot nodes", self.boot_nodes.len());
-        
+        println!(
+            "Initializing node discovery with {} boot nodes",
+            self.boot_nodes.len()
+        );
+
         for boot_node in &self.boot_nodes {
             if let Err(e) = self.discover_from_node(*boot_node).await {
                 println!("Failed to discover from boot node {}: {}", boot_node, e);
             }
         }
-        
+
         Ok(())
     }
 
     /// Perform periodic discovery
     pub async fn run_discovery_cycle(&self) -> Result<(), Box<dyn std::error::Error>> {
         let now = Instant::now();
-        
+
         // Update last discovery time
         *self.last_discovery.lock().await = Some(now);
-        
+
         // Get random nodes to discover from
         let nodes_to_contact = self.get_random_nodes(3).await;
-        
+
         for node_info in &nodes_to_contact {
             if let Err(e) = self.discover_from_node(node_info.address).await {
                 println!("Discovery failed for {}: {}", node_info.id, e);
-                
+
                 // Mark node as potentially problematic
                 self.mark_node_as_problematic(&node_info.id).await;
             }
         }
-        
+
         Ok(())
     }
 
     /// Discover nodes from a specific node
-    async fn discover_from_node(&self, addr: SocketAddr) -> Result<Vec<NodeInfo>, Box<dyn std::error::Error>> {
+    async fn discover_from_node(
+        &self,
+        addr: SocketAddr,
+    ) -> Result<Vec<NodeInfo>, Box<dyn std::error::Error>> {
         println!("Discovering nodes from {}", addr);
-        
+
         // Create discovery request
         let request = DiscoveryRequest {
             requester_id: self.node_id.clone(),
             network_id: self.network_id,
         };
-        
+
         // In a real implementation, this would send the request over the network
         // For now, we'll simulate a response
         let response = self.simulate_discovery_request(request, addr).await?;
-        
+
         // Process the response and add new nodes
         let mut new_nodes = Vec::new();
         for node_desc in response.nodes {
@@ -117,27 +121,32 @@ impl NodeDiscovery {
                 version: node_desc.version,
                 last_seen: response.timestamp,
             };
-            
+
             if self.add_node_if_new(node_info.clone()).await {
                 new_nodes.push(node_info);
             }
         }
-        
+
         // Update recent contacts
-        self.update_recent_contact(&format!("responder_{}", addr)).await;
-        
+        self.update_recent_contact(&format!("responder_{}", addr))
+            .await;
+
         Ok(new_nodes)
     }
 
     /// Simulate discovery request/response (in a real implementation, this would be network communication)
-    async fn simulate_discovery_request(&self, _request: DiscoveryRequest, addr: SocketAddr) -> Result<DiscoveryResponse, Box<dyn std::error::Error>> {
+    async fn simulate_discovery_request(
+        &self,
+        _request: DiscoveryRequest,
+        addr: SocketAddr,
+    ) -> Result<DiscoveryResponse, Box<dyn std::error::Error>> {
         // In a real implementation, this would make an actual network call
         // For simulation purposes, we'll generate a mock response
         println!("Simulating discovery request to {}", addr);
-        
+
         // Create mock response
         let mut nodes = Vec::new();
-        
+
         // Add some mock nodes (in a real implementation, these would come from the responding node)
         for i in 1..=5 {
             nodes.push(NodeInfo {
@@ -151,7 +160,7 @@ impl NodeDiscovery {
                     .as_secs(),
             });
         }
-        
+
         Ok(DiscoveryResponse {
             nodes,
             timestamp: std::time::SystemTime::now()
@@ -164,7 +173,7 @@ impl NodeDiscovery {
     /// Add a node if it's not already known
     async fn add_node_if_new(&self, node_info: NodeInfo) -> bool {
         let mut known_nodes = self.known_nodes.lock().await;
-        
+
         // Check if node is blacklisted
         {
             let blacklist = self.blacklist.lock().await;
@@ -172,49 +181,48 @@ impl NodeDiscovery {
                 return false;
             }
         }
-        
+
         // Check if we've reached the maximum number of known nodes
         if known_nodes.len() >= self.max_known_nodes {
             // Remove oldest nodes to make space
             self.evict_oldest_nodes(&mut known_nodes).await;
         }
-        
+
         // Add if not already known
         if !known_nodes.contains_key(&node_info.id) {
             known_nodes.insert(node_info.id.clone(), node_info);
             return true;
         }
-        
+
         false
     }
 
     /// Evict oldest nodes when maximum is reached
     async fn evict_oldest_nodes(&self, known_nodes: &mut HashMap<String, NodeInfo>) {
         let recent_contacts = self.recent_contacts.lock().await;
-        
+
         // Find nodes that haven't been contacted recently
         let mut removable_nodes: Vec<(String, u64)> = known_nodes
-            .iter()
-            .filter_map(|(id, info)| {
+            .keys()
+            .map(|id| {
                 if let Some(last_contact) = recent_contacts.get(id) {
-                    Some((id.clone(), last_contact.elapsed().as_secs()))
+                    (id.clone(), last_contact.elapsed().as_secs())
                 } else {
                     // Nodes never contacted are prime candidates for removal
-                    Some((id.clone(), std::u64::MAX))
+                    (id.clone(), u64::MAX)
                 }
             })
             .collect();
-        
+
         // Sort by time since last contact (descending)
-        removable_nodes.sort_by(|a, b| b.1.cmp(&a.1));
-        
+        removable_nodes.sort_by_key(|b| std::cmp::Reverse(b.1));
+
         // Remove half of the excess nodes
         let excess = known_nodes.len().saturating_sub(self.max_known_nodes / 2);
         let to_remove = std::cmp::min(excess, removable_nodes.len());
-        
-        for i in 0..to_remove {
-            let node_id = &removable_nodes[i].0;
-            known_nodes.remove(node_id);
+
+        for node_tuple in removable_nodes.iter().take(to_remove) {
+            known_nodes.remove(&node_tuple.0);
         }
     }
 
@@ -223,7 +231,7 @@ impl NodeDiscovery {
         let known_nodes = self.known_nodes.lock().await;
         let recent_contacts = self.recent_contacts.lock().await;
         let blacklist = self.blacklist.lock().await;
-        
+
         let mut eligible_nodes: Vec<&NodeInfo> = known_nodes
             .values()
             .filter(|node| {
@@ -236,15 +244,11 @@ impl NodeDiscovery {
                 }
             })
             .collect();
-        
+
         // Shuffle and take the requested count
         eligible_nodes.shuffle(&mut rand::thread_rng());
-        
-        eligible_nodes
-            .into_iter()
-            .take(count)
-            .cloned()
-            .collect()
+
+        eligible_nodes.into_iter().take(count).cloned().collect()
     }
 
     /// Update recent contact time for a node
@@ -264,12 +268,7 @@ impl NodeDiscovery {
 
     /// Get known nodes
     pub async fn get_known_nodes(&self) -> Vec<NodeInfo> {
-        self.known_nodes
-            .lock()
-            .await
-            .values()
-            .cloned()
-            .collect()
+        self.known_nodes.lock().await.values().cloned().collect()
     }
 
     /// Get nodes by capability
@@ -349,11 +348,7 @@ mod tests {
     #[tokio::test]
     async fn test_node_discovery_creation() {
         let boot_nodes = vec!["127.0.0.1:8080".parse().unwrap()];
-        let discovery = NodeDiscovery::new(
-            "test_node".to_string(),
-            1,
-            boot_nodes,
-        );
+        let discovery = NodeDiscovery::new("test_node".to_string(), 1, boot_nodes);
 
         assert_eq!(discovery.node_id, "test_node");
         assert_eq!(discovery.network_id, 1);
@@ -363,11 +358,7 @@ mod tests {
     #[tokio::test]
     async fn test_add_node_if_new() {
         let boot_nodes = vec![];
-        let discovery = NodeDiscovery::new(
-            "test_node".to_string(),
-            1,
-            boot_nodes,
-        );
+        let discovery = NodeDiscovery::new("test_node".to_string(), 1, boot_nodes);
 
         let node_info = NodeInfo {
             id: "new_node".to_string(),
@@ -394,11 +385,7 @@ mod tests {
     #[tokio::test]
     async fn test_blacklisting() {
         let boot_nodes = vec![];
-        let discovery = NodeDiscovery::new(
-            "test_node".to_string(),
-            1,
-            boot_nodes,
-        );
+        let discovery = NodeDiscovery::new("test_node".to_string(), 1, boot_nodes);
 
         let node_info = NodeInfo {
             id: "bad_node".to_string(),
@@ -428,11 +415,7 @@ mod tests {
     #[tokio::test]
     async fn test_capabilities_filter() {
         let boot_nodes = vec![];
-        let discovery = NodeDiscovery::new(
-            "test_node".to_string(),
-            1,
-            boot_nodes,
-        );
+        let discovery = NodeDiscovery::new("test_node".to_string(), 1, boot_nodes);
 
         // Add nodes with different capabilities
         let node1 = NodeInfo {
@@ -442,7 +425,7 @@ mod tests {
             version: "1.0.0".to_string(),
             last_seen: 0,
         };
-        
+
         let node2 = NodeInfo {
             id: "node_with_consensus".to_string(),
             address: "127.0.0.1:8084".parse().unwrap(),

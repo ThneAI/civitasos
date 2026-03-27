@@ -43,7 +43,7 @@ pub struct StakeRecord {
     pub staker: String,
     pub amount: u64,
     pub start_time: u64,
-    pub duration: u64, // 锁定时长
+    pub duration: u64,    // 锁定时长
     pub reward_rate: f64, // 年化收益率
     pub status: StakeStatus,
 }
@@ -59,14 +59,14 @@ pub enum StakeStatus {
 // 经济参数
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EconomicParameters {
-    pub base_fee: u64,                  // 基础费用
-    pub stake_requirement: u64,         // 最低抵押要求
-    pub slashing_threshold: u64,        // 惩罚阈值
-    pub reward_rate: f64,               // 奖励利率
-    pub inflation_rate: f64,            // 通胀率
-    pub min_reputation: u64,            // 最低声誉分数
-    pub risk_multiplier: f64,           // 风险乘数
-    pub penalty_rate: f64,              // 惩罚比率
+    pub base_fee: u64,           // 基础费用
+    pub stake_requirement: u64,  // 最低抵押要求
+    pub slashing_threshold: u64, // 惩罚阈值
+    pub reward_rate: f64,        // 奖励利率
+    pub inflation_rate: f64,     // 通胀率
+    pub min_reputation: u64,     // 最低声誉分数
+    pub risk_multiplier: f64,    // 风险乘数
+    pub penalty_rate: f64,       // 惩罚比率
 }
 
 // 经济引擎
@@ -88,10 +88,10 @@ impl EconomicEngine {
             stakes: Vec::new(),
             parameters: EconomicParameters {
                 base_fee: 100,
-                stake_requirement: 500,  // 降低抵押要求
+                stake_requirement: 500, // 降低抵押要求
                 slashing_threshold: 50, // 50%的违规率触发惩罚
-                reward_rate: 0.1, // 10%年化收益率
-                inflation_rate: 0.01, // 1%通胀率
+                reward_rate: 0.1,       // 10%年化收益率
+                inflation_rate: 0.01,   // 1%通胀率
                 min_reputation: 10,
                 risk_multiplier: 1.5,
                 penalty_rate: 0.1, // 10%惩罚率
@@ -186,7 +186,9 @@ impl EconomicEngine {
 
     // 抵押
     pub fn stake(&mut self, account_id: &str, amount: u64) -> Result<(), EconomicError> {
-        let account = self.accounts.get_mut(account_id)
+        let account = self
+            .accounts
+            .get_mut(account_id)
             .ok_or(EconomicError::AccountNotFound)?;
 
         // 检查余额
@@ -239,7 +241,9 @@ impl EconomicEngine {
 
     // 解押
     pub fn unstake(&mut self, account_id: &str, amount: u64) -> Result<(), EconomicError> {
-        let account = self.accounts.get_mut(account_id)
+        let account = self
+            .accounts
+            .get_mut(account_id)
             .ok_or(EconomicError::AccountNotFound)?;
 
         // 检查抵押金额
@@ -255,10 +259,10 @@ impl EconomicEngine {
 
         let mut unstaked_amount = 0;
         for stake in self.stakes.iter_mut() {
-            if stake.staker == account_id && 
-               stake.status == StakeStatus::Active &&
-               now >= stake.start_time + stake.duration {
-                
+            if stake.staker == account_id
+                && stake.status == StakeStatus::Active
+                && now >= stake.start_time + stake.duration
+            {
                 if unstaked_amount + stake.amount <= amount {
                     // 解锁整个抵押记录
                     stake.status = StakeStatus::Withdrawn;
@@ -269,11 +273,11 @@ impl EconomicEngine {
                     // 这里简化处理，实际实现会更复杂
                     stake.amount -= remaining_to_unstake;
                     unstaked_amount += remaining_to_unstake;
-                    
+
                     if stake.amount == 0 {
                         stake.status = StakeStatus::Withdrawn;
                     }
-                    
+
                     break;
                 }
             }
@@ -311,7 +315,9 @@ impl EconomicEngine {
 
         // 根据风险评分调整费用
         if let Some(account) = self.accounts.get(&adu.accountability_anchor) {
-            fee = (fee as f64 * (1.0 + (account.risk_score as f64 / 100.0) * self.parameters.risk_multiplier)) as u64;
+            fee = (fee as f64
+                * (1.0 + (account.risk_score as f64 / 100.0) * self.parameters.risk_multiplier))
+                as u64;
         }
 
         // 根据操作复杂度调整（简化实现）
@@ -321,8 +327,14 @@ impl EconomicEngine {
     }
 
     // 执行经济惩罚
-    pub fn apply_penalty(&mut self, account_id: &str, penalty_amount: u64) -> Result<(), EconomicError> {
-        let account = self.accounts.get_mut(account_id)
+    pub fn apply_penalty(
+        &mut self,
+        account_id: &str,
+        penalty_amount: u64,
+    ) -> Result<(), EconomicError> {
+        let account = self
+            .accounts
+            .get_mut(account_id)
             .ok_or(EconomicError::AccountNotFound)?;
 
         // 从余额中扣除，如果余额不足则从抵押中扣除
@@ -330,19 +342,20 @@ impl EconomicEngine {
             account.balance -= penalty_amount;
         } else {
             let remaining_penalty = penalty_amount - account.balance;
-            
+
             if account.staked_amount >= remaining_penalty {
                 account.balance = 0;
                 account.staked_amount -= remaining_penalty;
-                
+
                 // 在抵押记录中标记被惩罚的部分
                 for stake in self.stakes.iter_mut() {
-                    if stake.staker == account_id && stake.status == StakeStatus::Active {
-                        if stake.amount >= remaining_penalty {
-                            stake.amount -= remaining_penalty;
-                            stake.status = StakeStatus::Slashed;
-                            break;
-                        }
+                    if stake.staker == account_id
+                        && stake.status == StakeStatus::Active
+                        && stake.amount >= remaining_penalty
+                    {
+                        stake.amount -= remaining_penalty;
+                        stake.status = StakeStatus::Slashed;
+                        break;
                     }
                 }
             } else {
@@ -376,8 +389,14 @@ impl EconomicEngine {
     }
 
     // 发放奖励
-    pub fn distribute_reward(&mut self, account_id: &str, reward_amount: u64) -> Result<(), EconomicError> {
-        let account = self.accounts.get_mut(account_id)
+    pub fn distribute_reward(
+        &mut self,
+        account_id: &str,
+        reward_amount: u64,
+    ) -> Result<(), EconomicError> {
+        let account = self
+            .accounts
+            .get_mut(account_id)
             .ok_or(EconomicError::AccountNotFound)?;
 
         account.balance += reward_amount;
@@ -415,12 +434,17 @@ impl EconomicEngine {
             .as_secs();
 
         // 收集需要奖励的记录
-        let stakes_to_reward: Vec<(String, u64)> = self.stakes.iter()
+        let stakes_to_reward: Vec<(String, u64)> = self
+            .stakes
+            .iter()
             .filter(|stake| stake.status == StakeStatus::Active)
             .map(|stake| {
                 // 计算奖励时间（简化：按年化利率计算）
                 let time_elapsed = now.saturating_sub(stake.start_time);
-                let reward = (stake.amount as f64 * stake.reward_rate * (time_elapsed as f64 / (365.0 * 24.0 * 3600.0))) as u64;
+                let reward = (stake.amount as f64
+                    * stake.reward_rate
+                    * (time_elapsed as f64 / (365.0 * 24.0 * 3600.0)))
+                    as u64;
                 (stake.staker.clone(), reward)
             })
             .filter(|(_, reward)| *reward > 0)
@@ -435,9 +459,14 @@ impl EconomicEngine {
     }
 
     // 验证ADU的经济约束
-    pub fn validate_economic_constraints(&self, adu: &AtomicDecisionUnit) -> Result<bool, EconomicError> {
+    pub fn validate_economic_constraints(
+        &self,
+        adu: &AtomicDecisionUnit,
+    ) -> Result<bool, EconomicError> {
         // 检查账户是否存在
-        let account = self.accounts.get(&adu.accountability_anchor)
+        let account = self
+            .accounts
+            .get(&adu.accountability_anchor)
             .ok_or(EconomicError::AccountNotFound)?;
 
         // 检查声誉分数是否足够
@@ -468,7 +497,8 @@ impl EconomicEngine {
 
     // 获取账户抵押总额
     pub fn get_total_staked(&self, account_id: &str) -> u64 {
-        self.stakes.iter()
+        self.stakes
+            .iter()
             .filter(|s| s.staker == account_id && s.status == StakeStatus::Active)
             .map(|s| s.amount)
             .sum()
@@ -506,7 +536,9 @@ impl std::fmt::Display for EconomicError {
             EconomicError::InsufficientStakedFunds => write!(f, "Insufficient staked funds"),
             EconomicError::InsufficientStake => write!(f, "Insufficient stake"),
             EconomicError::StakeStillLocked => write!(f, "Stake still locked"),
-            EconomicError::InsufficientFundsForPenalty => write!(f, "Insufficient funds for penalty"),
+            EconomicError::InsufficientFundsForPenalty => {
+                write!(f, "Insufficient funds for penalty")
+            }
             EconomicError::InvalidTransaction => write!(f, "Invalid transaction"),
         }
     }

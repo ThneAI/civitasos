@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -8,11 +8,11 @@ use crate::{StateStore, Validator};
 // 高级共识类型
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AdvancedConsensusType {
-    PBFT,           // 实用拜占庭容错
-    Tendermint,     // 拜占庭容错共识
-    HotStuff,       // 领导者驱动的拜占庭容错
-    Optimistic,     // 乐观共识
-    Rollup,         // 汇总共识
+    PBFT,       // 实用拜占庭容错
+    Tendermint, // 拜占庭容错共识
+    HotStuff,   // 领导者驱动的拜占庭容错
+    Optimistic, // 乐观共识
+    Rollup,     // 汇总共识
 }
 
 // 共识轮次
@@ -90,8 +90,8 @@ pub struct PBFTConsensusEngine {
     pub rounds: HashMap<u64, ConsensusRound>,
     pub pending_transactions: Vec<ConsensusTransaction>,
     pub committed_blocks: Vec<Block>,
-    pub view_change_timeout: u64,  // 视图变更超时
-    pub replica_id: String,        // 副本ID
+    pub view_change_timeout: u64, // 视图变更超时
+    pub replica_id: String,       // 副本ID
 }
 
 impl PBFTConsensusEngine {
@@ -170,7 +170,10 @@ impl PBFTConsensusEngine {
         let mut transactions = Vec::new();
         let max_transactions = 10; // 每块最多10笔交易
 
-        for tx in self.pending_transactions.drain(0..std::cmp::min(max_transactions, self.pending_transactions.len())) {
+        for tx in self
+            .pending_transactions
+            .drain(0..std::cmp::min(max_transactions, self.pending_transactions.len()))
+        {
             transactions.push(tx);
         }
 
@@ -182,7 +185,10 @@ impl PBFTConsensusEngine {
             state_root: state_root.clone(),
             transactions,
             proposer: self.replica_id.clone(),
-            signature: self.sign_block_data(&format!("{}{}{}", self.current_height, state_root, prev_hash)),
+            signature: self.sign_block_data(&format!(
+                "{}{}{}",
+                self.current_height, state_root, prev_hash
+            )),
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -194,7 +200,12 @@ impl PBFTConsensusEngine {
     }
 
     // 投票
-    pub fn vote(&mut self, round_num: u64, block_hash: String, vote_type: VoteType) -> Result<(), ConsensusError> {
+    pub fn vote(
+        &mut self,
+        round_num: u64,
+        block_hash: String,
+        vote_type: VoteType,
+    ) -> Result<(), ConsensusError> {
         let validator_id = self.replica_id.clone();
         let current_height = self.current_height;
         let signature_data = format!("{}{}{:?}", round_num, current_height, &validator_id);
@@ -203,7 +214,7 @@ impl PBFTConsensusEngine {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         let vote = Vote {
             validator_id: validator_id.clone(),
             round: round_num,
@@ -226,8 +237,7 @@ impl PBFTConsensusEngine {
     // 验证投票
     pub fn validate_vote(&self, vote: &Vote) -> Result<bool, ConsensusError> {
         // 检查验证节点是否在列表中
-        let validator_exists = self.validators.iter()
-            .any(|v| v.id == vote.validator_id);
+        let validator_exists = self.validators.iter().any(|v| v.id == vote.validator_id);
 
         if !validator_exists {
             return Ok(false);
@@ -383,7 +393,10 @@ mod tests {
             reputation: 100,
         });
 
-        println!("✓ Created PBFT consensus engine with {} validators", pbft.validators.len());
+        println!(
+            "✓ Created PBFT consensus engine with {} validators",
+            pbft.validators.len()
+        );
 
         // 开始共识轮次
         let result = pbft.start_round();
@@ -447,25 +460,31 @@ mod tests {
 
         // 创建2个投票（少于2/3多数）
         let mut votes = HashMap::new();
-        votes.insert("validator1".to_string(), Vote {
-            validator_id: "validator1".to_string(),
-            round: 0,
-            height: 0,
-            block_hash: "hash".to_string(),
-            vote_type: VoteType::Precommit,
-            signature: "sig".to_string(),
-            timestamp: 0,
-        });
+        votes.insert(
+            "validator1".to_string(),
+            Vote {
+                validator_id: "validator1".to_string(),
+                round: 0,
+                height: 0,
+                block_hash: "hash".to_string(),
+                vote_type: VoteType::Precommit,
+                signature: "sig".to_string(),
+                timestamp: 0,
+            },
+        );
 
-        votes.insert("validator2".to_string(), Vote {
-            validator_id: "validator2".to_string(),
-            round: 0,
-            height: 0,
-            block_hash: "hash".to_string(),
-            vote_type: VoteType::Precommit,
-            signature: "sig".to_string(),
-            timestamp: 0,
-        });
+        votes.insert(
+            "validator2".to_string(),
+            Vote {
+                validator_id: "validator2".to_string(),
+                round: 0,
+                height: 0,
+                block_hash: "hash".to_string(),
+                vote_type: VoteType::Precommit,
+                signature: "sig".to_string(),
+                timestamp: 0,
+            },
+        );
 
         // 2票对3个验证节点，应该是多数（2 > 2*3/3 = 2）
         // 实际上是2 > 2，这是false
@@ -481,15 +500,18 @@ mod tests {
         println!("✓ 2 votes not majority for 3 validators: {}", !majority);
 
         // 添加第3个投票
-        votes.insert("validator3".to_string(), Vote {
-            validator_id: "validator3".to_string(),
-            round: 0,
-            height: 0,
-            block_hash: "hash".to_string(),
-            vote_type: VoteType::Precommit,
-            signature: "sig".to_string(),
-            timestamp: 0,
-        });
+        votes.insert(
+            "validator3".to_string(),
+            Vote {
+                validator_id: "validator3".to_string(),
+                round: 0,
+                height: 0,
+                block_hash: "hash".to_string(),
+                vote_type: VoteType::Precommit,
+                signature: "sig".to_string(),
+                timestamp: 0,
+            },
+        );
 
         let majority = pbft.has_majority(&votes);
         assert!(majority); // 3票是3个节点的多数

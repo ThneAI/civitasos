@@ -64,24 +64,22 @@ pub struct GovernanceEngine {
 impl GovernanceEngine {
     pub fn new(consensus_engine: ConsensusEngine) -> Self {
         GovernanceEngine {
-            constitution: vec![
-                ConstitutionalRule {
-                    id: "rule_0".to_string(),
-                    name: "Basic Execution Rule".to_string(),
-                    description: "All executions must follow basic safety rules".to_string(),
-                    content: "F(State, Input) -> NewState where StateChange is verified".to_string(),
-                    version: 1,
-                    created_at: std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs(),
-                    updated_at: std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs(),
-                    active: true,
-                }
-            ],
+            constitution: vec![ConstitutionalRule {
+                id: "rule_0".to_string(),
+                name: "Basic Execution Rule".to_string(),
+                description: "All executions must follow basic safety rules".to_string(),
+                content: "F(State, Input) -> NewState where StateChange is verified".to_string(),
+                version: 1,
+                created_at: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                updated_at: std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                active: true,
+            }],
             proposals: Vec::new(),
             voting_power: HashMap::new(),
             consensus_engine,
@@ -91,9 +89,13 @@ impl GovernanceEngine {
             approval_threshold: 67,       // 67%通过
         }
     }
-    
+
     // 创建提案
-    pub fn create_proposal(&mut self, proposal: GovernanceProposal, proposer_stake: u64) -> Result<String, GovernanceError> {
+    pub fn create_proposal(
+        &mut self,
+        proposal: GovernanceProposal,
+        proposer_stake: u64,
+    ) -> Result<String, GovernanceError> {
         // 检查提案者是否有足够的抵押
         if proposer_stake < self.min_stake_for_proposal {
             return Err(GovernanceError::InsufficientStake);
@@ -111,7 +113,7 @@ impl GovernanceEngine {
 
         // 设置截止日期
         let proposal_id = format!("gov_proposal_{}", self.proposals.len() + 1);
-        
+
         let mut new_proposal = proposal;
         new_proposal.id = proposal_id.clone();
         new_proposal.created_at = std::time::SystemTime::now()
@@ -129,9 +131,14 @@ impl GovernanceEngine {
     }
 
     // 计算提案结果
-    pub fn compute_proposal_result(&mut self, proposal_id: &str) -> Result<ProposalOutcome, GovernanceError> {
+    pub fn compute_proposal_result(
+        &mut self,
+        proposal_id: &str,
+    ) -> Result<ProposalOutcome, GovernanceError> {
         // 首先获取提案的只读信息
-        let proposal_info = self.proposals.iter()
+        let proposal_info = self
+            .proposals
+            .iter()
             .find(|p| p.id == proposal_id)
             .cloned()
             .ok_or(GovernanceError::ProposalNotFound)?;
@@ -141,7 +148,7 @@ impl GovernanceEngine {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         if now <= proposal_info.voting_deadline {
             return Err(GovernanceError::VotingPeriodNotEnded);
         }
@@ -155,17 +162,15 @@ impl GovernanceEngine {
 
         // 计算支持率
         let support_percentage = if proposal_info.votes_for + proposal_info.votes_against > 0 {
-            (proposal_info.votes_for * 100) / (proposal_info.votes_for + proposal_info.votes_against)
+            (proposal_info.votes_for * 100)
+                .checked_div(proposal_info.votes_for + proposal_info.votes_against)
+                .unwrap_or(0)
         } else {
             0
         };
 
         // 检查是否超过通过阈值
-        let is_approved = if is_quorum_met && support_percentage >= self.approval_threshold {
-            true
-        } else {
-            false
-        };
+        let is_approved = is_quorum_met && support_percentage >= self.approval_threshold;
 
         // 现在更新提案状态
         if let Some(proposal) = self.proposals.iter_mut().find(|p| p.id == proposal_id) {
@@ -186,7 +191,9 @@ impl GovernanceEngine {
         let mut executed_proposals = Vec::new();
 
         // 首先收集所有需要执行的提案ID及信息
-        let proposals_to_execute: Vec<(String, GovernanceProposalType)> = self.proposals.iter()
+        let proposals_to_execute: Vec<(String, GovernanceProposalType)> = self
+            .proposals
+            .iter()
             .filter(|p| !p.executed && p.passed)
             .map(|p| (p.id.clone(), p.proposal_type.clone()))
             .collect();
@@ -201,36 +208,37 @@ impl GovernanceEngine {
                     match &proposal_type {
                         GovernanceProposalType::ConstitutionalAmendment(content) => {
                             self.update_constitution(content, &proposal_id)?;
-                        },
+                        }
                         GovernanceProposalType::ParameterChange(content) => {
                             self.update_parameters(content)?;
-                        },
+                        }
                         GovernanceProposalType::ValidatorManagement(content) => {
                             self.manage_validators(content)?;
-                        },
+                        }
                         GovernanceProposalType::EmergencyBrake(active) => {
                             self.activate_emergency_brake(*active)?;
-                        },
+                        }
                         GovernanceProposalType::UpgradeProtocol(content) => {
                             self.initiate_protocol_upgrade(content)?;
-                        },
+                        }
                         GovernanceProposalType::BudgetAllocation(content) => {
                             self.handle_budget_allocation(content)?;
-                        },
+                        }
                         GovernanceProposalType::PolicyChange(content) => {
                             self.handle_policy_change(content)?;
-                        },
+                        }
                         GovernanceProposalType::RiskAssessment(content) => {
                             self.handle_risk_assessment(content)?;
-                        },
+                        }
                     }
 
                     // 标记为已执行
-                    if let Some(proposal) = self.proposals.iter_mut().find(|p| p.id == proposal_id) {
+                    if let Some(proposal) = self.proposals.iter_mut().find(|p| p.id == proposal_id)
+                    {
                         proposal.executed = true;
                     }
                     executed_proposals.push(proposal_id);
-                },
+                }
                 _ => continue, // 未通过的提案跳过
             }
         }
@@ -239,28 +247,38 @@ impl GovernanceEngine {
     }
 
     // 添加宪法规则
-    pub fn add_constitutional_rule(&mut self, rule: ConstitutionalRule) -> Result<(), GovernanceError> {
+    pub fn add_constitutional_rule(
+        &mut self,
+        rule: ConstitutionalRule,
+    ) -> Result<(), GovernanceError> {
         // 在实际实现中，这可能需要通过治理流程
         self.constitution.push(rule);
         Ok(())
     }
-    
+
     // 检查提案是否可以提交
-    pub fn can_submit_proposal(&self, proposer: &str, proposal_type: &GovernanceProposalType) -> Result<bool, GovernanceError> {
+    pub fn can_submit_proposal(
+        &self,
+        proposer: &str,
+        proposal_type: &GovernanceProposalType,
+    ) -> Result<bool, GovernanceError> {
         // 检查提案者是否是验证节点
-        let is_validator = self.consensus_engine.validators.iter()
+        let is_validator = self
+            .consensus_engine
+            .validators
+            .iter()
             .any(|v| v.id == proposer);
-        
+
         if !is_validator {
             return Ok(false);
         }
-        
+
         // 检查提案类型是否有效
         match proposal_type {
             GovernanceProposalType::ConstitutionalAmendment(_) => {
                 // 宪法修正案需要更高的权限
                 Ok(true)
-            },
+            }
             GovernanceProposalType::EmergencyBrake(active) => {
                 // 紧急制动需要特殊权限
                 if *active {
@@ -269,7 +287,7 @@ impl GovernanceEngine {
                 } else {
                     Ok(true) // 解除紧急状态总是可以的
                 }
-            },
+            }
             GovernanceProposalType::ParameterChange(_) => Ok(true),
             GovernanceProposalType::ValidatorManagement(_) => Ok(true),
             GovernanceProposalType::UpgradeProtocol(_) => Ok(true),
@@ -278,83 +296,93 @@ impl GovernanceEngine {
             GovernanceProposalType::RiskAssessment(_) => Ok(true),
         }
     }
-    
+
     // 检查是否为紧急情况
     fn is_emergency_condition(&self) -> bool {
         // 在实际实现中，这里会检查系统是否处于紧急状态
         // 简化实现：假定不是紧急情况
         false
     }
-    
+
     // 查询提案
     pub fn get_proposal(&self, proposal_id: &str) -> Option<&GovernanceProposal> {
         self.proposals.iter().find(|p| p.id == proposal_id)
     }
-    
+
     // 获取活跃提案
     pub fn get_active_proposals(&self) -> Vec<&GovernanceProposal> {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
-        self.proposals.iter()
+
+        self.proposals
+            .iter()
             .filter(|p| !p.executed && p.voting_deadline > now)
             .collect()
     }
-    
+
     // 获取已执行提案
     pub fn get_executed_proposals(&self) -> Vec<&GovernanceProposal> {
-        self.proposals.iter()
-            .filter(|p| p.executed)
-            .collect()
+        self.proposals.iter().filter(|p| p.executed).collect()
     }
-    
+
     // 获取通过的提案
     pub fn get_passed_proposals(&self) -> Vec<&GovernanceProposal> {
-        self.proposals.iter()
-            .filter(|p| p.passed)
-            .collect()
+        self.proposals.iter().filter(|p| p.passed).collect()
     }
-    
+
     // 获取失败的提案
     pub fn get_failed_proposals(&self) -> Vec<&GovernanceProposal> {
-        self.proposals.iter()
+        self.proposals
+            .iter()
             .filter(|p| !p.passed && p.executed)
             .collect()
     }
-    
+
     // 更新参数
     fn update_parameters(&mut self, content: &str) -> Result<(), GovernanceError> {
         // 在实际实现中，这里会解析并应用参数变更
         // 验证参数变更的安全性
         println!("Updating parameters: {}", content);
-        
+
         // 例如，更新治理参数
         if content.contains("quorum_percentage") {
-            if let Ok(percentage) = content.split('=').nth(1).unwrap_or("0").trim().parse::<u64>() {
-                if percentage >= 10 && percentage <= 90 {
+            if let Ok(percentage) = content
+                .split('=')
+                .nth(1)
+                .unwrap_or("0")
+                .trim()
+                .parse::<u64>()
+            {
+                if (10..=90).contains(&percentage) {
                     self.quorum_percentage = percentage;
                 }
             }
         }
-        
+
         if content.contains("approval_threshold") {
-            if let Ok(threshold) = content.split('=').nth(1).unwrap_or("0").trim().parse::<u64>() {
-                if threshold >= 51 && threshold <= 95 {
+            if let Ok(threshold) = content
+                .split('=')
+                .nth(1)
+                .unwrap_or("0")
+                .trim()
+                .parse::<u64>()
+            {
+                if (51..=95).contains(&threshold) {
                     self.approval_threshold = threshold;
                 }
             }
         }
-        
+
         Ok(())
     }
-    
+
     // 管理验证节点
     fn manage_validators(&mut self, content: &str) -> Result<(), GovernanceError> {
         // 在实际实现中，这里会管理验证节点
         println!("Managing validators: {}", content);
-        
+
         // 例如，添加/移除验证节点
         if content.starts_with("add:") {
             let parts: Vec<&str> = content.split(':').collect();
@@ -362,35 +390,37 @@ impl GovernanceEngine {
                 let id = parts[1];
                 let pubkey = parts[2];
                 let stake: u64 = parts[3].parse().unwrap_or(0);
-                
+
                 let validator = crate::consensus::Validator {
                     id: id.to_string(),
                     public_key: pubkey.to_string(),
                     stake,
                     reputation: 100,
                 };
-                
+
                 self.consensus_engine.add_validator(validator);
             }
         } else if content.starts_with("remove:") {
             let validator_id = content.trim_start_matches("remove:");
-            self.consensus_engine.validators.retain(|v| v.id != validator_id);
+            self.consensus_engine
+                .validators
+                .retain(|v| v.id != validator_id);
         }
-        
+
         Ok(())
     }
-    
+
     // 协议升级
     fn initiate_protocol_upgrade(&mut self, content: &str) -> Result<(), GovernanceError> {
         // 在实际实现中，这里会处理协议升级
         println!("Initiating protocol upgrade: {}", content);
-        
+
         // 协议升级通常需要特殊的验证流程
         // 例如：验证升级包的完整性、兼容性等
-        
+
         Ok(())
     }
-    
+
     // 激活紧急制动
     fn activate_emergency_brake(&mut self, active: bool) -> Result<(), GovernanceError> {
         if active {
@@ -401,12 +431,19 @@ impl GovernanceEngine {
         }
         Ok(())
     }
-    
+
     // 更新宪法
-    fn update_constitution(&mut self, content: &str, proposal_id: &str) -> Result<(), GovernanceError> {
+    fn update_constitution(
+        &mut self,
+        content: &str,
+        proposal_id: &str,
+    ) -> Result<(), GovernanceError> {
         // 解析宪法更新内容
-        println!("Updating constitution based on proposal {}: {}", proposal_id, content);
-        
+        println!(
+            "Updating constitution based on proposal {}: {}",
+            proposal_id, content
+        );
+
         // 在实际实现中，这里会解析内容并更新宪法规则
         let new_rule = crate::ConstitutionalRule {
             id: format!("rule_{}_{}", proposal_id, self.constitution.len()),
@@ -426,22 +463,22 @@ impl GovernanceEngine {
         };
 
         self.constitution.push(new_rule);
-        
+
         Ok(())
     }
-    
+
     // 预算分配
     fn handle_budget_allocation(&mut self, content: &str) -> Result<(), GovernanceError> {
         println!("Handling budget allocation: {}", content);
         Ok(())
     }
-    
+
     // 政策变更
     fn handle_policy_change(&mut self, content: &str) -> Result<(), GovernanceError> {
         println!("Handling policy change: {}", content);
         Ok(())
     }
-    
+
     // 风险评估
     fn handle_risk_assessment(&mut self, content: &str) -> Result<(), GovernanceError> {
         println!("Handling risk assessment: {}", content);
@@ -451,7 +488,10 @@ impl GovernanceEngine {
     // 创建提案
     // 获取活跃的宪法规则
     pub fn get_active_constitutional_rules(&self) -> Vec<&ConstitutionalRule> {
-        self.constitution.iter().filter(|rule| rule.active).collect()
+        self.constitution
+            .iter()
+            .filter(|rule| rule.active)
+            .collect()
     }
 
     pub fn is_action_constitutional(&self, _action: &str) -> bool {
@@ -459,11 +499,20 @@ impl GovernanceEngine {
         // 简化实现：假定所有操作都符合宪法
         true
     }
-    
+
     // 投票
-    pub fn vote(&mut self, proposal_id: &str, voter: String, vote_for: bool, stake: u64) -> Result<(), GovernanceError> {
+    pub fn vote(
+        &mut self,
+        proposal_id: &str,
+        voter: String,
+        vote_for: bool,
+        stake: u64,
+    ) -> Result<(), GovernanceError> {
         // 查找提案
-        let proposal = self.proposals.iter_mut().find(|p| p.id == proposal_id)
+        let proposal = self
+            .proposals
+            .iter_mut()
+            .find(|p| p.id == proposal_id)
             .ok_or(GovernanceError::ProposalNotFound)?;
 
         // 检查投票是否仍在进行中
@@ -471,7 +520,7 @@ impl GovernanceEngine {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs();
-        
+
         if now > proposal.voting_deadline {
             return Err(GovernanceError::VotingPeriodEnded);
         }
@@ -556,7 +605,9 @@ mod tests {
             id: "".to_string(), // 会被函数设置
             title: "Test Proposal".to_string(),
             description: "This is a test proposal".to_string(),
-            proposal_type: GovernanceProposalType::ParameterChange("test_param=test_value".to_string()),
+            proposal_type: GovernanceProposalType::ParameterChange(
+                "test_param=test_value".to_string(),
+            ),
             proposer: "validator1".to_string(),
             created_at: std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)

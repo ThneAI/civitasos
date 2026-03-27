@@ -1,11 +1,11 @@
 //! Security auditing and threat detection for CivitasOS
 
-use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH, Duration};
-use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 
-use super::{AuditEntry, AuditEventType, AuditSeverity, SecurityAuditor, SecurityRule, SecurityCondition, SecurityAction};
+use super::{AuditEntry, AuditEventType, AuditSeverity, SecurityAuditor};
 
 /// Threat intelligence entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -136,7 +136,9 @@ impl SecurityAnalyzer {
                 }
 
                 if self.matches_detection_rule(audit_entry, rule).await {
-                    let event = self.create_security_event_from_audit(audit_entry, rule).await;
+                    let event = self
+                        .create_security_event_from_audit(audit_entry, rule)
+                        .await;
                     security_events.push(event);
                 }
             }
@@ -146,7 +148,7 @@ impl SecurityAnalyzer {
         {
             let mut events = self.security_events.write().await;
             events.extend(security_events.clone());
-            
+
             // Keep only recent events
             if events.len() > 1000 {
                 let len = events.len();
@@ -164,27 +166,31 @@ impl SecurityAnalyzer {
         match &rule.condition {
             DetectionCondition::ConsensusAnomaly { .. } => {
                 matches!(entry.event_type, AuditEventType::ConsensusRound)
-            },
+            }
             DetectionCondition::GovernanceSpam { .. } => {
                 matches!(entry.event_type, AuditEventType::ProposalCreated)
-            },
+            }
             DetectionCondition::ResourceAbuse { .. } => {
                 matches!(entry.event_type, AuditEventType::ExecutionStarted)
-            },
+            }
             DetectionCondition::NetworkAnomaly { .. } => {
                 matches!(entry.event_type, AuditEventType::NetworkConnection)
-            },
+            }
             DetectionCondition::StateTampering => {
                 matches!(entry.event_type, AuditEventType::StateTransition)
-            },
+            }
             DetectionCondition::IdentitySpoofing => {
                 matches!(entry.event_type, AuditEventType::SecurityViolation)
-            },
+            }
         }
     }
 
     /// Create a security event from an audit entry
-    async fn create_security_event_from_audit(&self, audit: &AuditEntry, rule: &DetectionRule) -> SecurityEvent {
+    async fn create_security_event_from_audit(
+        &self,
+        audit: &AuditEntry,
+        rule: &DetectionRule,
+    ) -> SecurityEvent {
         SecurityEvent {
             id: format!("sev_{}_{}", audit.timestamp, audit.actor),
             event_type: match &audit.event_type {
@@ -212,7 +218,7 @@ impl SecurityAnalyzer {
     pub async fn add_threat_intelligence(&self, threat: ThreatIntelligence) {
         let mut intel = self.threat_intel.write().await;
         intel.push(threat);
-        
+
         // Keep only recent intelligence
         if intel.len() > 1000 {
             let len = intel.len();
@@ -230,21 +236,29 @@ impl SecurityAnalyzer {
         } else {
             0
         };
-        
+
         events[start..].to_vec()
     }
 
     /// Get security events by status
-    pub async fn get_security_events_by_status(&self, status: &SecurityEventStatus) -> Vec<SecurityEvent> {
+    pub async fn get_security_events_by_status(
+        &self,
+        status: &SecurityEventStatus,
+    ) -> Vec<SecurityEvent> {
         let events = self.security_events.read().await;
-        events.iter()
+        events
+            .iter()
             .filter(|event| event.status == *status)
             .cloned()
             .collect()
     }
 
     /// Update security event status
-    pub async fn update_security_event_status(&self, event_id: &str, status: SecurityEventStatus) -> bool {
+    pub async fn update_security_event_status(
+        &self,
+        event_id: &str,
+        status: SecurityEventStatus,
+    ) -> bool {
         let mut events = self.security_events.write().await;
         for event in events.iter_mut() {
             if event.id == event_id {
@@ -261,7 +275,7 @@ impl SecurityAnalyzer {
         let intel = self.threat_intel.read().await;
 
         let mut stats = ThreatStatistics::new();
-        
+
         for event in events.iter() {
             match event.severity {
                 AuditSeverity::Critical => stats.critical_events += 1,
@@ -269,7 +283,7 @@ impl SecurityAnalyzer {
                 AuditSeverity::Warning => stats.warning_events += 1,
                 AuditSeverity::Info => stats.info_events += 1,
             }
-            
+
             match &event.event_type {
                 SecurityEventType::ConsensusAnomaly => stats.consensus_anomalies += 1,
                 SecurityEventType::GovernanceAbuse => stats.governance_abuses += 1,
@@ -277,12 +291,18 @@ impl SecurityAnalyzer {
                 _ => stats.other_events += 1,
             }
         }
-        
+
         stats.total_threats = intel.len();
-        stats.active_events = events.iter()
-            .filter(|e| matches!(e.status, SecurityEventStatus::New | SecurityEventStatus::Investigating))
+        stats.active_events = events
+            .iter()
+            .filter(|e| {
+                matches!(
+                    e.status,
+                    SecurityEventStatus::New | SecurityEventStatus::Investigating
+                )
+            })
             .count();
-        
+
         stats
     }
 
@@ -348,6 +368,12 @@ pub struct ThreatStatistics {
     pub resolved_events: usize,
 }
 
+impl Default for ThreatStatistics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ThreatStatistics {
     pub fn new() -> Self {
         ThreatStatistics {
@@ -395,43 +421,51 @@ pub struct EventCorrelation {
     pub description: String,
 }
 
+impl Default for CorrelationEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CorrelationEngine {
     pub fn new() -> Self {
         CorrelationEngine {
-            correlation_rules: vec![
-                CorrelationRule {
-                    name: "consensus_then_governance_attack".to_string(),
-                    conditions: vec![
-                        CorrelationCondition::EventTypeSequence {
-                            sequence: vec![SecurityEventType::ConsensusAnomaly, SecurityEventType::GovernanceAbuse]
-                        },
-                        CorrelationCondition::TimeProximity {
-                            max_interval: Duration::from_secs(60)
-                        },
-                    ],
-                    conclusion: "Potential coordinated attack on consensus and governance".to_string(),
-                },
-            ],
+            correlation_rules: vec![CorrelationRule {
+                name: "consensus_then_governance_attack".to_string(),
+                conditions: vec![
+                    CorrelationCondition::EventTypeSequence {
+                        sequence: vec![
+                            SecurityEventType::ConsensusAnomaly,
+                            SecurityEventType::GovernanceAbuse,
+                        ],
+                    },
+                    CorrelationCondition::TimeProximity {
+                        max_interval: Duration::from_secs(60),
+                    },
+                ],
+                conclusion: "Potential coordinated attack on consensus and governance".to_string(),
+            }],
         }
     }
 
     pub fn correlate(&self, events: &[SecurityEvent]) -> Vec<EventCorrelation> {
         let mut correlations = Vec::new();
-        
+
         // Simple correlation: look for events from same actor within time window
         let mut grouped_by_actor: HashMap<String, Vec<&SecurityEvent>> = HashMap::new();
-        
+
         for event in events {
-            grouped_by_actor.entry(event.source.clone())
-                .or_insert_with(Vec::new)
+            grouped_by_actor
+                .entry(event.source.clone())
+                .or_default()
                 .push(event);
         }
-        
+
         for (actor, actor_events) in grouped_by_actor {
             if actor_events.len() > 1 {
                 // Multiple events from same actor
                 let event_ids: Vec<String> = actor_events.iter().map(|e| e.id.clone()).collect();
-                
+
                 correlations.push(EventCorrelation {
                     related_events: event_ids,
                     correlation_type: "multiple_events_from_actor".to_string(),
@@ -440,7 +474,7 @@ impl CorrelationEngine {
                 });
             }
         }
-        
+
         correlations
     }
 }
@@ -477,12 +511,12 @@ impl SecurityReporter {
     async fn calculate_risk_score(&self, stats: &ThreatStatistics) -> f64 {
         // Simple risk scoring algorithm
         let mut score = 0.0;
-        
+
         // Weight critical events heavily
         score += stats.critical_events as f64 * 10.0;
         score += stats.error_events as f64 * 5.0;
         score += stats.warning_events as f64 * 1.0;
-        
+
         // Normalize to 0-100 scale
         (score / 100.0).min(100.0)
     }
@@ -507,7 +541,7 @@ mod tests {
     async fn test_security_analyzer_creation() {
         let auditor = SecurityAuditor::new(1000);
         let analyzer = SecurityAnalyzer::new(auditor);
-        
+
         assert_eq!(analyzer.detection_rules.len(), 3);
     }
 
@@ -521,7 +555,7 @@ mod tests {
     #[tokio::test]
     async fn test_correlation_engine() {
         let engine = CorrelationEngine::new();
-        
+
         // Create test events
         let test_events = vec![
             SecurityEvent {
@@ -549,7 +583,7 @@ mod tests {
                 status: SecurityEventStatus::New,
             },
         ];
-        
+
         let correlations = engine.correlate(&test_events);
         assert!(correlations.len() >= 0); // At least our grouped by actor correlation
     }

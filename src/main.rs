@@ -1,36 +1,79 @@
-use civitasos::{ExecutionEngine, OpCode, StateStore};
+use std::env;
 
 fn main() {
+    let args: Vec<String> = env::args().collect();
+
+    if args.contains(&"--help".to_string()) || args.contains(&"-h".to_string()) {
+        print_help();
+        return;
+    }
+
+    if args.contains(&"--version".to_string()) || args.contains(&"-v".to_string()) {
+        println!("CivitasOS v0.1.0");
+        return;
+    }
+
+    if args.contains(&"--demo".to_string()) {
+        // 运行演示模式
+        run_demo();
+        return;
+    }
+
+    // 默认：启动完整的 CivitasOS
+    println!("Starting CivitasOS...");
+    start_full_system();
+}
+
+fn print_help() {
+    println!("CivitasOS - A Decentralized AI Agent Operating System");
+    println!();
+    println!("Usage: civitasos [OPTIONS]");
+    println!();
+    println!("Options:");
+    println!("  --help, -h        Print this help message");
+    println!("  --version, -v     Print version information");
+    println!("  --demo            Run demonstration mode");
+    println!("  --daemon          Run as daemon (not implemented yet)");
+    println!();
+    println!("Examples:");
+    println!("  civitasos                  # Start the full system");
+    println!("  civitasos --demo           # Run demo mode");
+    println!("  civitasos --help           # Show this help");
+}
+
+fn run_demo() {
     println!("CivitasOS MVP - Week 1-2 Demo");
     println!("===============================");
-    
+
     // 演示基本执行功能
     demonstrate_execution_engine();
     println!();
-    
+
     // 演示状态管理功能
     demonstrate_state_management();
     println!();
-    
+
     // 演示完整的执行流程
     demonstrate_complete_flow();
 }
 
 fn demonstrate_execution_engine() {
+    use civitasos::{ExecutionEngine, OpCode};
+
     println!("1. 执行引擎演示:");
-    
+
     let mut engine = ExecutionEngine::new(1000);
-    
+
     // 设置初始寄存器值
     engine.context.registers[1] = 15;
     engine.context.registers[2] = 25;
-    
+
     // 创建一个简单的程序：ADD r0, r1, r2
     let program = vec![
-        OpCode::ADD(0, 1, 2),  // r0 = r1 + r2 (15 + 25 = 40)
+        OpCode::ADD(0, 1, 2), // r0 = r1 + r2 (15 + 25 = 40)
         OpCode::RETURN,
     ];
-    
+
     match engine.execute_program(program) {
         Ok(result) => {
             println!("   程序执行成功!");
@@ -46,54 +89,58 @@ fn demonstrate_execution_engine() {
 }
 
 fn demonstrate_state_management() {
+    use civitasos::StateStore;
+
     println!("2. 状态管理演示:");
-    
+
     let mut state_store = StateStore::new();
-    
+
     // 添加一些键值对
     state_store.put("balance:user1".to_string(), "100".to_string());
     state_store.put("balance:user2".to_string(), "200".to_string());
-    
+
     // 获取值
     if let Some(value) = state_store.get("balance:user1") {
         println!("   user1 余额: {}", value.value);
     }
-    
+
     // 更新值
     state_store.put("balance:user1".to_string(), "150".to_string());
-    
+
     if let Some(value) = state_store.get("balance:user1") {
         println!("   user1 余额更新后: {}", value.value);
     }
-    
+
     // 显示状态根哈希
     println!("   当前状态根哈希: {}", &state_store.get_root_hash()[..16]);
     println!("   历史版本数量: {}", state_store.versions.len());
 }
 
 fn demonstrate_complete_flow() {
+    use civitasos::{ExecutionEngine, OpCode, StateStore};
+
     println!("3. 完整执行流程演示:");
-    
+
     // 创建执行引擎
     let mut engine = ExecutionEngine::new(1000);
-    
+
     // 设置初始值
     engine.context.registers[1] = 100; // 初始值
-    engine.context.registers[2] = 10;  // 减数
-    
+    engine.context.registers[2] = 10; // 减数
+
     // 创建程序：从100减去10，然后存储结果
     let program = vec![
-        OpCode::SUB(0, 1, 2),           // r0 = r1 - r2 (100 - 10 = 90)
-        OpCode::STORE(1, 0),            // 存储结果到内存位置1
+        OpCode::SUB(0, 1, 2), // r0 = r1 - r2 (100 - 10 = 90)
+        OpCode::STORE(1, 0),  // 存储结果到内存位置1
         OpCode::RETURN,
     ];
-    
+
     match engine.execute_program(program) {
         Ok(result) => {
             println!("   执行成功，生成 {} 个状态变更", result.state_diffs.len());
             println!("   最终结果: {}", engine.context.registers[0]);
             println!("   轨迹哈希: {}", &result.trace_hash[..16]);
-            
+
             // 创建状态存储并应用结果
             let mut state_store = StateStore::new();
             match state_store.apply_diff(result.state_diffs) {
@@ -101,8 +148,8 @@ fn demonstrate_complete_flow() {
                     println!("   状态更新成功!");
                     println!("   新状态根: {}", &new_root[..16]);
                 }
-                Err(e) => {
-                    println!("   状态更新失败: {:?}", e);
+                Err(_e) => {
+                    println!("   状态更新失败");
                 }
             }
         }
@@ -110,4 +157,21 @@ fn demonstrate_complete_flow() {
             println!("   执行失败: {:?}", e);
         }
     }
+}
+
+fn start_full_system() {
+    println!("Initializing CivitasOS with 6-layer architecture...");
+    println!("- Layer 5: Civilization (governance, constitution)");
+    println!("- Layer 4: Consensus (validation, legitimacy)");
+    println!("- Layer 3: Execution (deterministic computation)");
+    println!("- Layer 2: State (immutable storage)");
+    println!("- Layer 1: Atomic (atomic operations)");
+    println!("- Layer 0: Network (P2P communication)");
+    println!();
+    println!("For demo mode, run: civitasos --demo");
+    println!("For help, run: civitasos --help");
+
+    // 在实际实现中，这里会启动完整的 CivitasOS 系统
+    // 但现在我们只是显示一条消息表明系统已准备就绪
+    println!("\nCivitasOS is ready for decentralized AI agent operations.");
 }

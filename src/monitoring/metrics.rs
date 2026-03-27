@@ -1,10 +1,10 @@
 //! Metrics collection and aggregation for CivitasOS
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use serde::{Deserialize, Serialize};
 
-use super::{SystemMetrics, PerformanceMonitor};
+use super::SystemMetrics;
 
 /// Metric types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -62,7 +62,7 @@ impl MetricsCollector {
     /// Add a metric
     pub fn add_metric(&mut self, metric: Metric) {
         self.metrics.push(metric);
-        
+
         // Keep only the most recent metrics
         if self.metrics.len() > self.max_metrics {
             self.metrics.drain(0..self.metrics.len() - self.max_metrics);
@@ -76,13 +76,16 @@ impl MetricsCollector {
 
     /// Get metrics by type
     pub fn get_metrics_by_type(&self, metric_type: &MetricType) -> Vec<&Metric> {
-        self.metrics.iter().filter(|m| m.metric_type == *metric_type).collect()
+        self.metrics
+            .iter()
+            .filter(|m| m.metric_type == *metric_type)
+            .collect()
     }
 
     /// Calculate aggregate statistics for a metric
     pub fn get_metric_stats(&self, name: &str) -> Option<MetricStats> {
         let metrics: Vec<&Metric> = self.get_metrics_by_name(name);
-        
+
         if metrics.is_empty() {
             return None;
         }
@@ -96,10 +99,10 @@ impl MetricsCollector {
             min: *values.first()?,
             max: *values.last()?,
             mean: values.iter().sum::<f64>() / values.len() as f64,
-            median: if values.len() % 2 == 0 {
-                (values[values.len()/2] + values[values.len()/2 - 1]) / 2.0
+            median: if values.len().is_multiple_of(2) {
+                (values[values.len() / 2] + values[values.len() / 2 - 1]) / 2.0
             } else {
-                values[values.len()/2]
+                values[values.len() / 2]
             },
         })
     }
@@ -109,67 +112,107 @@ impl MetricsCollector {
         // CPU usage
         self.add_metric(
             Metric::new("cpu_usage", MetricType::Gauge, sys_metrics.cpu_usage)
-                .with_labels(HashMap::new())
+                .with_labels(HashMap::new()),
         );
 
         // Memory usage
         self.add_metric(
-            Metric::new("memory_usage_bytes", MetricType::Gauge, sys_metrics.memory_usage as f64)
-                .with_labels(HashMap::new())
+            Metric::new(
+                "memory_usage_bytes",
+                MetricType::Gauge,
+                sys_metrics.memory_usage as f64,
+            )
+            .with_labels(HashMap::new()),
         );
 
         // Disk usage
         self.add_metric(
-            Metric::new("disk_usage_bytes", MetricType::Gauge, sys_metrics.disk_usage as f64)
-                .with_labels(HashMap::new())
+            Metric::new(
+                "disk_usage_bytes",
+                MetricType::Gauge,
+                sys_metrics.disk_usage as f64,
+            )
+            .with_labels(HashMap::new()),
         );
 
         // Network in
         self.add_metric(
-            Metric::new("network_received_bytes", MetricType::Counter, sys_metrics.network_in as f64)
-                .with_labels(HashMap::new())
+            Metric::new(
+                "network_received_bytes",
+                MetricType::Counter,
+                sys_metrics.network_in as f64,
+            )
+            .with_labels(HashMap::new()),
         );
 
         // Network out
         self.add_metric(
-            Metric::new("network_sent_bytes", MetricType::Counter, sys_metrics.network_out as f64)
-                .with_labels(HashMap::new())
+            Metric::new(
+                "network_sent_bytes",
+                MetricType::Counter,
+                sys_metrics.network_out as f64,
+            )
+            .with_labels(HashMap::new()),
         );
 
         // Active connections
         self.add_metric(
-            Metric::new("active_connections", MetricType::Gauge, sys_metrics.active_connections as f64)
-                .with_labels(HashMap::new())
+            Metric::new(
+                "active_connections",
+                MetricType::Gauge,
+                sys_metrics.active_connections as f64,
+            )
+            .with_labels(HashMap::new()),
         );
 
         // Execution count
         self.add_metric(
-            Metric::new("execution_count_total", MetricType::Counter, sys_metrics.execution_count as f64)
-                .with_labels(HashMap::new())
+            Metric::new(
+                "execution_count_total",
+                MetricType::Counter,
+                sys_metrics.execution_count as f64,
+            )
+            .with_labels(HashMap::new()),
         );
 
         // Average execution time
         self.add_metric(
-            Metric::new("avg_execution_time_ms", MetricType::Gauge, sys_metrics.avg_execution_time)
-                .with_labels(HashMap::new())
+            Metric::new(
+                "avg_execution_time_ms",
+                MetricType::Gauge,
+                sys_metrics.avg_execution_time,
+            )
+            .with_labels(HashMap::new()),
         );
 
         // State operations
         self.add_metric(
-            Metric::new("state_operations_total", MetricType::Counter, sys_metrics.state_operations as f64)
-                .with_labels(HashMap::new())
+            Metric::new(
+                "state_operations_total",
+                MetricType::Counter,
+                sys_metrics.state_operations as f64,
+            )
+            .with_labels(HashMap::new()),
         );
 
         // Consensus rounds
         self.add_metric(
-            Metric::new("consensus_rounds_total", MetricType::Counter, sys_metrics.consensus_rounds as f64)
-                .with_labels(HashMap::new())
+            Metric::new(
+                "consensus_rounds_total",
+                MetricType::Counter,
+                sys_metrics.consensus_rounds as f64,
+            )
+            .with_labels(HashMap::new()),
         );
 
         // Governance proposals
         self.add_metric(
-            Metric::new("governance_proposals_total", MetricType::Counter, sys_metrics.governance_proposals as f64)
-                .with_labels(HashMap::new())
+            Metric::new(
+                "governance_proposals_total",
+                MetricType::Counter,
+                sys_metrics.governance_proposals as f64,
+            )
+            .with_labels(HashMap::new()),
         );
     }
 }
@@ -190,6 +233,12 @@ pub struct MetricsExporter {
     collectors: Vec<MetricsCollector>,
 }
 
+impl Default for MetricsExporter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MetricsExporter {
     pub fn new() -> Self {
         MetricsExporter {
@@ -208,20 +257,24 @@ impl MetricsExporter {
         for collector in &self.collectors {
             for metric in &collector.metrics {
                 // Add metric name and type
-                output.push_str(&format!("# TYPE {} {}\n", metric.name, 
+                output.push_str(&format!(
+                    "# TYPE {} {}\n",
+                    metric.name,
                     match metric.metric_type {
                         MetricType::Counter => "counter",
                         MetricType::Gauge => "gauge",
                         MetricType::Histogram => "histogram",
                         MetricType::Summary => "summary",
-                    }));
+                    }
+                ));
 
                 // Add metric with labels
-                let labels: Vec<String> = metric.labels
+                let labels: Vec<String> = metric
+                    .labels
                     .iter()
                     .map(|(k, v)| format!("{}=\"{}\"", k, v))
                     .collect();
-                
+
                 let label_str = if labels.is_empty() {
                     String::new()
                 } else {
@@ -252,16 +305,16 @@ mod tests {
     #[test]
     fn test_metrics_collector() {
         let mut collector = MetricsCollector::new(100);
-        
+
         // Add some metrics
         collector.add_metric(Metric::new("cpu_usage", MetricType::Gauge, 80.0));
         collector.add_metric(Metric::new("cpu_usage", MetricType::Gauge, 75.0));
         collector.add_metric(Metric::new("cpu_usage", MetricType::Gauge, 90.0));
-        
+
         // Check that we can get metrics by name
         let cpu_metrics = collector.get_metrics_by_name("cpu_usage");
         assert_eq!(cpu_metrics.len(), 3);
-        
+
         // Check stats calculation
         let stats = collector.get_metric_stats("cpu_usage").unwrap();
         assert_eq!(stats.count, 3);
@@ -274,13 +327,12 @@ mod tests {
     fn test_metrics_exporter() {
         let mut collector = MetricsCollector::new(100);
         collector.add_metric(
-            Metric::new("test_counter", MetricType::Counter, 100.0)
-                .with_labels(HashMap::new())
+            Metric::new("test_counter", MetricType::Counter, 100.0).with_labels(HashMap::new()),
         );
-        
+
         let mut exporter = MetricsExporter::new();
         exporter.add_collector(collector);
-        
+
         let prom_output = exporter.export_prometheus();
         assert!(prom_output.contains("test_counter"));
         assert!(prom_output.contains("counter"));

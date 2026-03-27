@@ -1,11 +1,9 @@
 //! Node management for the network layer
 
-use serde::{Deserialize, Serialize};
-use std::net::SocketAddr;
 use std::collections::HashMap;
-use tokio::time::{sleep, Duration};
+use std::net::SocketAddr;
 
-use super::{NodeInfo, NetworkMessage};
+use super::NodeInfo;
 
 /// Node status
 #[derive(Debug, Clone, PartialEq)]
@@ -26,6 +24,12 @@ pub struct NodeManager {
     connection_attempts: HashMap<String, u32>,
     /// Maximum connection attempts before marking as unreachable
     max_connection_attempts: u32,
+}
+
+impl Default for NodeManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl NodeManager {
@@ -54,8 +58,9 @@ impl NodeManager {
 
     /// Update node status
     pub fn update_node_status(&mut self, node_id: &str, status: NodeStatus) {
-        self.node_statuses.insert(node_id.to_string(), status.clone());
-        
+        self.node_statuses
+            .insert(node_id.to_string(), status.clone());
+
         // Reset connection attempts on successful connection
         if matches!(status, NodeStatus::Connected) {
             self.connection_attempts.remove(node_id);
@@ -64,12 +69,16 @@ impl NodeManager {
 
     /// Mark a connection attempt
     pub fn mark_connection_attempt(&mut self, node_id: &str) {
-        let attempts = self.connection_attempts.entry(node_id.to_string()).or_insert(0);
+        let attempts = self
+            .connection_attempts
+            .entry(node_id.to_string())
+            .or_insert(0);
         *attempts += 1;
-        
+
         // If too many failed attempts, mark as unreachable
         if *attempts >= self.max_connection_attempts {
-            self.node_statuses.insert(node_id.to_string(), NodeStatus::Unreachable);
+            self.node_statuses
+                .insert(node_id.to_string(), NodeStatus::Unreachable);
         }
     }
 
@@ -127,19 +136,24 @@ impl NodeManager {
     pub async fn perform_health_check(&mut self) {
         for (node_id, node_info) in self.nodes.iter() {
             // Skip unreachable nodes
-            if matches!(self.node_statuses.get(node_id), Some(NodeStatus::Unreachable)) {
+            if matches!(
+                self.node_statuses.get(node_id),
+                Some(NodeStatus::Unreachable)
+            ) {
                 continue;
             }
 
             let reachable = self.check_node_connectivity(node_info.address).await;
-            
+
             if reachable {
                 if !matches!(self.node_statuses.get(node_id), Some(NodeStatus::Connected)) {
-                    self.node_statuses.insert(node_id.clone(), NodeStatus::Connected);
+                    self.node_statuses
+                        .insert(node_id.clone(), NodeStatus::Connected);
                 }
             } else {
                 if matches!(self.node_statuses.get(node_id), Some(NodeStatus::Connected)) {
-                    self.node_statuses.insert(node_id.clone(), NodeStatus::Disconnected);
+                    self.node_statuses
+                        .insert(node_id.clone(), NodeStatus::Disconnected);
                 }
             }
         }
@@ -240,7 +254,10 @@ mod tests {
 
         // Update status
         node_manager.update_node_status("node1", NodeStatus::Connected);
-        assert_eq!(node_manager.get_node_status("node1"), Some(&NodeStatus::Connected));
+        assert_eq!(
+            node_manager.get_node_status("node1"),
+            Some(&NodeStatus::Connected)
+        );
 
         // Test statistics
         let stats = node_manager.get_statistics();
@@ -266,15 +283,27 @@ mod tests {
 
         // Test all status transitions
         node_manager.update_node_status("node2", NodeStatus::Connecting);
-        assert_eq!(node_manager.get_node_status("node2"), Some(&NodeStatus::Connecting));
+        assert_eq!(
+            node_manager.get_node_status("node2"),
+            Some(&NodeStatus::Connecting)
+        );
 
         node_manager.update_node_status("node2", NodeStatus::Connected);
-        assert_eq!(node_manager.get_node_status("node2"), Some(&NodeStatus::Connected));
+        assert_eq!(
+            node_manager.get_node_status("node2"),
+            Some(&NodeStatus::Connected)
+        );
 
         node_manager.update_node_status("node2", NodeStatus::Disconnected);
-        assert_eq!(node_manager.get_node_status("node2"), Some(&NodeStatus::Disconnected));
+        assert_eq!(
+            node_manager.get_node_status("node2"),
+            Some(&NodeStatus::Disconnected)
+        );
 
         node_manager.update_node_status("node2", NodeStatus::Unreachable);
-        assert_eq!(node_manager.get_node_status("node2"), Some(&NodeStatus::Unreachable));
+        assert_eq!(
+            node_manager.get_node_status("node2"),
+            Some(&NodeStatus::Unreachable)
+        );
     }
 }

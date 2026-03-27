@@ -1,19 +1,18 @@
 //! Monitoring and observability for CivitasOS
 //! Provides performance metrics, system health checks, and security auditing
 
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
-use serde::{Deserialize, Serialize};
-use std::time::{SystemTime, UNIX_EPOCH, Duration};
 
-pub mod metrics;
 pub mod health;
+pub mod metrics;
 pub mod security;
 
 use crate::execution::ExecutionResult;
-use crate::state::StateStore;
 
 /// System performance metrics
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +29,12 @@ pub struct SystemMetrics {
     pub state_operations: u64,
     pub consensus_rounds: u64,
     pub governance_proposals: u64,
+}
+
+impl Default for SystemMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SystemMetrics {
@@ -85,7 +90,7 @@ impl PerformanceMonitor {
         if self.execution_times.is_empty() {
             return 0.0;
         }
-        
+
         let sum: f64 = self.execution_times.iter().sum();
         sum / self.execution_times.len() as f64
     }
@@ -93,15 +98,15 @@ impl PerformanceMonitor {
     /// Collect current system metrics
     pub async fn collect_metrics(&self) -> SystemMetrics {
         let mut metrics = SystemMetrics::new();
-        
+
         // Get current averages
         metrics.avg_execution_time = self.calculate_avg_execution_time();
         metrics.execution_count = self.execution_count.load(Ordering::Relaxed);
-        
+
         // Add to metrics history
         let mut metrics_history = self.metrics_history.write().await;
         metrics_history.push(metrics.clone());
-        
+
         // Keep only the most recent metrics
         if metrics_history.len() > self.max_metrics_history {
             let len = metrics_history.len();
@@ -109,7 +114,7 @@ impl PerformanceMonitor {
                 metrics_history.drain(0..len - self.max_metrics_history);
             }
         }
-        
+
         metrics
     }
 
@@ -121,20 +126,20 @@ impl PerformanceMonitor {
             .unwrap()
             .as_secs()
             - (minutes * 60);
-        
+
         let recent_metrics: Vec<&SystemMetrics> = metrics_history
             .iter()
             .filter(|m| m.timestamp >= cutoff_time)
             .collect();
-        
+
         if recent_metrics.is_empty() {
             return None;
         }
-        
+
         // Aggregate the metrics
         let mut agg_metrics = SystemMetrics::new();
         agg_metrics.timestamp = cutoff_time;
-        
+
         for metric in &recent_metrics {
             agg_metrics.cpu_usage += metric.cpu_usage;
             agg_metrics.memory_usage += metric.memory_usage;
@@ -148,12 +153,12 @@ impl PerformanceMonitor {
             agg_metrics.consensus_rounds += metric.consensus_rounds;
             agg_metrics.governance_proposals += metric.governance_proposals;
         }
-        
+
         // Average the values
         let count = recent_metrics.len() as f64;
         agg_metrics.cpu_usage /= count;
         agg_metrics.avg_execution_time /= count;
-        
+
         Some(agg_metrics)
     }
 
@@ -181,6 +186,12 @@ pub struct HealthReport {
     pub uptime: Duration,
     pub error_count: u64,
     pub warnings: Vec<String>,
+}
+
+impl Default for HealthReport {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl HealthReport {
@@ -282,7 +293,9 @@ impl SecurityAuditor {
                 SecurityRule {
                     name: "proposal_rate_limit".to_string(),
                     description: "Prevent governance spam".to_string(),
-                    condition: SecurityCondition::GovernanceSpam { max_proposals_per_hour: 10 },
+                    condition: SecurityCondition::GovernanceSpam {
+                        max_proposals_per_hour: 10,
+                    },
                     action: SecurityAction::Throttle,
                     enabled: true,
                 },
@@ -299,7 +312,7 @@ impl SecurityAuditor {
         details: String,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut audit_trail = self.audit_trail.write().await;
-        
+
         let audit_entry = AuditEntry {
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -311,9 +324,9 @@ impl SecurityAuditor {
             details,
             metadata: HashMap::new(),
         };
-        
+
         audit_trail.push(audit_entry);
-        
+
         // Keep only the most recent entries
         if audit_trail.len() > self.max_audit_entries {
             let len = audit_trail.len();
@@ -321,19 +334,19 @@ impl SecurityAuditor {
                 audit_trail.drain(0..len - self.max_audit_entries);
             }
         }
-        
+
         Ok(())
     }
 
     /// Check if an event violates security rules
     pub fn check_security_rules(&self, event: &AuditEntry) -> Vec<&SecurityRule> {
         let mut violations = Vec::new();
-        
+
         for rule in &self.security_rules {
             if !rule.enabled {
                 continue;
             }
-            
+
             match &rule.condition {
                 SecurityCondition::ExecutionThreshold { max_gas } => {
                     if matches!(event.event_type, AuditEventType::ExecutionStarted) {
@@ -342,20 +355,22 @@ impl SecurityAuditor {
                             violations.push(rule);
                         }
                     }
-                },
-                SecurityCondition::GovernanceSpam { max_proposals_per_hour } => {
+                }
+                SecurityCondition::GovernanceSpam {
+                    max_proposals_per_hour: _,
+                } => {
                     if matches!(event.event_type, AuditEventType::ProposalCreated) {
                         // This would require additional tracking logic
                         // Simplified check for demonstration
                         violations.push(rule);
                     }
-                },
+                }
                 _ => {
                     // Other conditions would be checked here
                 }
             }
         }
-        
+
         violations
     }
 
@@ -367,7 +382,7 @@ impl SecurityAuditor {
         } else {
             0
         };
-        
+
         audit_trail[start..].to_vec()
     }
 
@@ -378,13 +393,16 @@ impl SecurityAuditor {
             .unwrap()
             .as_secs()
             - (hours * 3600);
-        
+
         let audit_trail = self.audit_trail.read().await;
         audit_trail
             .iter()
             .filter(|entry| {
-                entry.timestamp >= cutoff_time && 
-                matches!(entry.severity, AuditSeverity::Warning | AuditSeverity::Error | AuditSeverity::Critical)
+                entry.timestamp >= cutoff_time
+                    && matches!(
+                        entry.severity,
+                        AuditSeverity::Warning | AuditSeverity::Error | AuditSeverity::Critical
+                    )
             })
             .cloned()
             .collect()
@@ -406,7 +424,7 @@ mod tests {
     #[tokio::test]
     async fn test_performance_monitor() {
         let mut monitor = PerformanceMonitor::new(100);
-        
+
         // Simulate some executions
         for _ in 0..10 {
             let execution_result = crate::execution::ExecutionResult {
@@ -417,7 +435,7 @@ mod tests {
             };
             monitor.record_execution(&execution_result).await;
         }
-        
+
         let metrics = monitor.collect_metrics().await;
         assert_eq!(monitor.execution_count.load(Ordering::Relaxed), 10);
     }
@@ -432,15 +450,18 @@ mod tests {
     #[tokio::test]
     async fn test_security_auditor() {
         let auditor = SecurityAuditor::new(1000);
-        
+
         // Log a test event
-        auditor.log_event(
-            AuditEventType::ExecutionStarted,
-            AuditSeverity::Info,
-            "test_node".to_string(),
-            "Execution started".to_string(),
-        ).await.unwrap();
-        
+        auditor
+            .log_event(
+                AuditEventType::ExecutionStarted,
+                AuditSeverity::Info,
+                "test_node".to_string(),
+                "Execution started".to_string(),
+            )
+            .await
+            .unwrap();
+
         let audits = auditor.get_recent_audits(10).await;
         assert_eq!(audits.len(), 1);
         assert_eq!(audits[0].actor, "test_node");

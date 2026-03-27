@@ -1,18 +1,18 @@
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::{StateStore, ExecutionResult};
+use crate::{ExecutionResult, StateStore};
 
 // 跨链桥接类型
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CrossChainBridgeType {
-    LockAndMint,      // 锁定铸造模式
-    BurnAndMint,      // 燃烧铸造模式
-    LiquidityPool,    // 流动性池模式
-    OracleBased,      // 预言机模式
-    StateChannel,     // 状态通道
+    LockAndMint,   // 锁定铸造模式
+    BurnAndMint,   // 燃烧铸造模式
+    LiquidityPool, // 流动性池模式
+    OracleBased,   // 预言机模式
+    StateChannel,  // 状态通道
 }
 
 // 跨链消息
@@ -23,12 +23,12 @@ pub struct CrossChainMessage {
     pub destination_chain: String,
     pub sender: String,
     pub recipient: String,
-    pub payload: String,           // 消息负载
+    pub payload: String,          // 消息负载
     pub nonce: u64,               // 消息序号
     pub timestamp: u64,           // 时间戳
-    pub signatures: Vec<String>,   // 多重签名
-    pub status: CrossChainStatus,  // 消息状态
-    pub relayer: Option<String>,   // 中继者
+    pub signatures: Vec<String>,  // 多重签名
+    pub status: CrossChainStatus, // 消息状态
+    pub relayer: Option<String>,  // 中继者
 }
 
 // 跨链状态
@@ -94,8 +94,8 @@ pub struct CrossChainBridge {
     pub processed_messages: HashMap<String, CrossChainMessage>,
     pub state_store: StateStore,
     pub fee_structure: FeeStructure,
-    pub security_threshold: u64,  // 安全阈值（需要的验证节点数量）
-    pub relayers: Vec<String>,    // 中继者列表
+    pub security_threshold: u64, // 安全阈值（需要的验证节点数量）
+    pub relayers: Vec<String>,   // 中继者列表
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,7 +104,7 @@ pub struct FeeStructure {
     pub percentage_fee: f64,      // 百分比费用
     pub min_fee: u64,             // 最低费用
     pub max_fee: u64,             // 最高费用
-    pub dynamic_adjustment: bool,  // 是否动态调整
+    pub dynamic_adjustment: bool, // 是否动态调整
 }
 
 impl CrossChainBridge {
@@ -139,13 +139,16 @@ impl CrossChainBridge {
     }
 
     // 发送跨链消息
-    pub fn send_message(&mut self, mut message: CrossChainMessage) -> Result<String, CrossChainError> {
+    pub fn send_message(
+        &mut self,
+        mut message: CrossChainMessage,
+    ) -> Result<String, CrossChainError> {
         // 验证消息格式
         self.validate_message(&message)?;
 
         // 计算费用
         let fee = self.compute_fee(&message);
-        
+
         // 在实际实现中，这里会从发送者那里收取费用
         println!("Charging fee: {}", fee);
 
@@ -158,7 +161,8 @@ impl CrossChainBridge {
             .as_secs();
 
         // 添加到待处理消息
-        self.pending_messages.insert(message.id.clone(), message.clone());
+        self.pending_messages
+            .insert(message.id.clone(), message.clone());
 
         Ok(message.id)
     }
@@ -198,15 +202,16 @@ impl CrossChainBridge {
 
         // 基于距离的费用（简化实现）
         let distance_factor = if message.source_chain == message.destination_chain {
-            0.5  // 同链便宜
+            0.5 // 同链便宜
         } else {
-            1.0  // 跨链正常费用
+            1.0 // 跨链正常费用
         };
 
         fee = (fee as f64 * distance_factor) as u64;
 
         // 应用百分比费用
-        let percentage_fee = (message.payload.len() as f64 * self.fee_structure.percentage_fee) as u64;
+        let percentage_fee =
+            (message.payload.len() as f64 * self.fee_structure.percentage_fee) as u64;
         fee += percentage_fee;
 
         // 应用最小/最大限制
@@ -219,11 +224,12 @@ impl CrossChainBridge {
     // 生成消息ID
     fn generate_message_id(&self, message: &CrossChainMessage) -> String {
         let mut hasher = Sha256::new();
-        hasher.update(&format!("{}{}{}{}{}", 
-            message.source_chain, 
-            message.destination_chain, 
-            message.sender, 
-            message.nonce, 
+        hasher.update(format!(
+            "{}{}{}{}{}",
+            message.source_chain,
+            message.destination_chain,
+            message.sender,
+            message.nonce,
             message.timestamp
         ));
         format!("{:x}", hasher.finalize())
@@ -233,12 +239,14 @@ impl CrossChainBridge {
     fn is_chain_supported(&self, _chain_id: &str) -> bool {
         // 在实际实现中，这里会有更复杂的链支持检查
         // 简化实现：检查是否在支持列表中
-        true  // 为简化先返回true
+        true // 为简化先返回true
     }
 
     // 验证跨链消息
     pub fn verify_message(&mut self, message_id: &str) -> Result<bool, CrossChainError> {
-        let message = self.pending_messages.get_mut(message_id)
+        let message = self
+            .pending_messages
+            .get_mut(message_id)
             .ok_or(CrossChainError::MessageNotFound)?;
 
         // 检查验证节点数量是否满足安全阈值
@@ -260,9 +268,14 @@ impl CrossChainBridge {
     }
 
     // 执行跨链事务
-    pub fn execute_transaction(&mut self, tx: CrossChainTransaction) -> Result<ExecutionResult, CrossChainError> {
+    pub fn execute_transaction(
+        &mut self,
+        tx: CrossChainTransaction,
+    ) -> Result<ExecutionResult, CrossChainError> {
         // 验证消息是否已验证
-        let message = self.processed_messages.get(&tx.message_id)
+        let message = self
+            .processed_messages
+            .get(&tx.message_id)
             .ok_or(CrossChainError::MessageNotFound)?;
 
         if !matches!(message.status, CrossChainStatus::Verified) {
@@ -273,22 +286,22 @@ impl CrossChainBridge {
         match tx.transaction_type {
             CrossChainTxType::Transfer => {
                 self.execute_transfer(&tx)?;
-            },
+            }
             CrossChainTxType::Swap => {
                 self.execute_swap(&tx)?;
-            },
+            }
             CrossChainTxType::Deposit => {
                 self.execute_deposit(&tx)?;
-            },
+            }
             CrossChainTxType::Withdraw => {
                 self.execute_withdraw(&tx)?;
-            },
+            }
             CrossChainTxType::ContractCall => {
                 self.execute_contract_call(&tx)?;
-            },
+            }
             CrossChainTxType::DataSync => {
                 self.execute_data_sync(&tx)?;
-            },
+            }
         }
 
         // 更新消息状态
@@ -311,9 +324,12 @@ impl CrossChainBridge {
         // - LockAndMint: 锁定源链资产，目标链铸造
         // - BurnAndMint: 源链燃烧资产，目标链铸造
         // - LiquidityPool: 从目标链流动性池转移
-        
-        println!("Executing cross-chain transfer: {} units of {}", tx.amount, tx.asset);
-        
+
+        println!(
+            "Executing cross-chain transfer: {} units of {}",
+            tx.amount, tx.asset
+        );
+
         Ok(())
     }
 
@@ -337,7 +353,10 @@ impl CrossChainBridge {
 
     // 执行合约调用
     fn execute_contract_call(&mut self, tx: &CrossChainTransaction) -> Result<(), CrossChainError> {
-        println!("Executing cross-chain contract call with payload: {}", tx.message_id);
+        println!(
+            "Executing cross-chain contract call with payload: {}",
+            tx.message_id
+        );
         Ok(())
     }
 
@@ -348,7 +367,10 @@ impl CrossChainBridge {
     }
 
     // 验证轻客户端证明
-    pub fn verify_light_client_proof(&self, proof: &LightClientProof) -> Result<bool, CrossChainError> {
+    pub fn verify_light_client_proof(
+        &self,
+        proof: &LightClientProof,
+    ) -> Result<bool, CrossChainError> {
         // 验证签名数量是否达到法定人数
         if proof.validator_signatures.len() < proof.quorum_size as usize {
             return Ok(false);
@@ -369,12 +391,11 @@ impl CrossChainBridge {
     pub fn get_processed_message_count(&self) -> usize {
         self.processed_messages.len()
     }
-    
+
     // 获取验证节点数量
     pub fn get_validator_count(&self) -> usize {
         self.validators.len()
     }
-
 }
 
 // 跨链错误
@@ -458,12 +479,16 @@ impl CrossChainGovernance {
             voting_power: HashMap::new(),
             min_stake_for_proposal: 1000,
             voting_period: 7 * 24 * 3600, // 7天
-            approval_threshold: 67, // 67%通过
+            approval_threshold: 67,       // 67%通过
         }
     }
 
     // 创建跨链治理提案
-    pub fn create_proposal(&mut self, proposal: CrossChainProposal, proposer_stake: u64) -> Result<String, CrossChainError> {
+    pub fn create_proposal(
+        &mut self,
+        proposal: CrossChainProposal,
+        proposer_stake: u64,
+    ) -> Result<String, CrossChainError> {
         if proposer_stake < self.min_stake_for_proposal {
             return Err(CrossChainError::FeeCalculationError); // 重用错误类型
         }
@@ -488,8 +513,17 @@ impl CrossChainGovernance {
     }
 
     // 对跨链提案投票
-    pub fn vote_on_proposal(&mut self, proposal_id: &str, voter: String, vote_for: bool, stake: u64) -> Result<(), CrossChainError> {
-        let proposal = self.proposals.iter_mut().find(|p| p.id == proposal_id)
+    pub fn vote_on_proposal(
+        &mut self,
+        proposal_id: &str,
+        voter: String,
+        vote_for: bool,
+        stake: u64,
+    ) -> Result<(), CrossChainError> {
+        let proposal = self
+            .proposals
+            .iter_mut()
+            .find(|p| p.id == proposal_id)
             .ok_or(CrossChainError::MessageNotFound)?;
 
         if vote_for {
@@ -507,7 +541,10 @@ impl CrossChainGovernance {
 
     // 计算提案结果
     pub fn compute_proposal_result(&self, proposal_id: &str) -> Result<bool, CrossChainError> {
-        let proposal = self.proposals.iter().find(|p| p.id == proposal_id)
+        let proposal = self
+            .proposals
+            .iter()
+            .find(|p| p.id == proposal_id)
             .ok_or(CrossChainError::MessageNotFound)?;
 
         if proposal.total_stake_voted == 0 {
@@ -554,7 +591,10 @@ mod tests {
                 .as_secs(),
         });
 
-        println!("✓ Created cross-chain bridge with {} validators", bridge.get_validator_count());
+        println!(
+            "✓ Created cross-chain bridge with {} validators",
+            bridge.get_validator_count()
+        );
 
         // 创建跨链消息
         let message = CrossChainMessage {
@@ -616,7 +656,7 @@ mod tests {
             description: "Add support for NEW token on cross-chain bridge".to_string(),
             proposal_type: CrossChainProposalType::AddSupportedAsset("NEW".to_string()),
             proposer: "validator1".to_string(),
-            created_at: 0, // 将由函数设置
+            created_at: 0,      // 将由函数设置
             voting_deadline: 0, // 将由函数设置
             executed: false,
             passed: false,
@@ -663,7 +703,7 @@ mod tests {
 
         let fee = bridge.compute_fee(&message);
         println!("✓ Calculated fee for 2KB message: {}", fee);
-        
+
         // 基本费用(100) + 大小费用(2*10) + 百分比费用
         assert!(fee >= 100 + 20); // 至少基本费用+大小费用
     }

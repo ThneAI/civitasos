@@ -2,8 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use tokio::sync::mpsc;
-use tokio::time::{sleep, Duration, Instant};
+use tokio::time::Instant;
 
 use crate::execution::AtomicDecisionUnit;
 use crate::governance::GovernanceProposal;
@@ -100,23 +99,12 @@ pub struct MessageHandler {
 }
 
 /// Message statistics
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct MessageStats {
     pub total_processed: u64,
     pub total_dropped: u64,
-    pub avg_processing_time: u64, // microseconds
+    pub avg_processing_time: u64,           // microseconds
     pub queue_sizes: (usize, usize, usize), // (high, normal, low)
-}
-
-impl Default for MessageStats {
-    fn default() -> Self {
-        MessageStats {
-            total_processed: 0,
-            total_dropped: 0,
-            avg_processing_time: 0,
-            queue_sizes: (0, 0, 0),
-        }
-    }
 }
 
 impl MessageHandler {
@@ -139,17 +127,23 @@ impl MessageHandler {
         // Check if queues are at capacity
         if self.get_total_queue_size() >= self.max_queue_size {
             // Drop low priority messages first
-            if queued_message.priority == MessagePriority::Low && !self.low_priority_queue.is_empty() {
+            if queued_message.priority == MessagePriority::Low
+                && !self.low_priority_queue.is_empty()
+            {
                 self.low_priority_queue.pop_front();
                 self.stats.total_dropped += 1;
-            } 
+            }
             // Then normal priority
-            else if queued_message.priority != MessagePriority::Critical && !self.normal_priority_queue.is_empty() {
+            else if queued_message.priority != MessagePriority::Critical
+                && !self.normal_priority_queue.is_empty()
+            {
                 self.normal_priority_queue.pop_front();
                 self.stats.total_dropped += 1;
-            } 
+            }
             // Finally high priority (only if critical message is being added to full queue)
-            else if queued_message.priority == MessagePriority::Critical && !self.high_priority_queue.is_empty() {
+            else if queued_message.priority == MessagePriority::Critical
+                && !self.high_priority_queue.is_empty()
+            {
                 // For critical messages, we'll still drop if absolutely necessary
                 self.high_priority_queue.pop_front();
                 self.stats.total_dropped += 1;
@@ -201,15 +195,15 @@ impl MessageHandler {
         while processed_count < limit {
             if let Some(message) = self.dequeue_next_message() {
                 let start_time = Instant::now();
-                
+
                 if processor(message) {
                     processed_count += 1;
                     self.stats.total_processed += 1;
-                    
+
                     // Update average processing time
                     let elapsed = start_time.elapsed().as_micros() as u64;
-                    self.stats.avg_processing_time = 
-                        (self.stats.avg_processing_time + elapsed) / 2; // Moving average
+                    self.stats.avg_processing_time = (self.stats.avg_processing_time + elapsed) / 2;
+                // Moving average
                 } else {
                     // If processing failed, put it back at the end of the queue with lower priority
                     // For simplicity, we'll just drop it in this implementation
@@ -227,9 +221,9 @@ impl MessageHandler {
 
     /// Get total queue size
     fn get_total_queue_size(&self) -> usize {
-        self.high_priority_queue.len() + 
-        self.normal_priority_queue.len() + 
-        self.low_priority_queue.len()
+        self.high_priority_queue.len()
+            + self.normal_priority_queue.len()
+            + self.low_priority_queue.len()
     }
 
     /// Clean old messages from all queues
@@ -316,7 +310,11 @@ impl BroadcastManager {
     }
 
     /// Broadcast a message to all or selected peers
-    pub fn broadcast_message(&mut self, message: MessageType, target_peers: Option<Vec<String>>) -> usize {
+    pub fn broadcast_message(
+        &mut self,
+        message: MessageType,
+        target_peers: Option<Vec<String>>,
+    ) -> usize {
         let targets = match target_peers {
             Some(peers) => peers,
             None => self.peers.clone(), // Broadcast to all known peers
@@ -390,23 +388,29 @@ mod tests {
         let mut handler = MessageHandler::new(100, 5000);
 
         // Add messages of different priorities
-        handler.queue_message(QueuedMessage::new(
-            MessageType::Ping(1),
-            MessagePriority::Low,
-            None,
-        )).unwrap();
-        
-        handler.queue_message(QueuedMessage::new(
-            MessageType::Ping(2),
-            MessagePriority::High,
-            None,
-        )).unwrap();
-        
-        handler.queue_message(QueuedMessage::new(
-            MessageType::Ping(3),
-            MessagePriority::Normal,
-            None,
-        )).unwrap();
+        handler
+            .queue_message(QueuedMessage::new(
+                MessageType::Ping(1),
+                MessagePriority::Low,
+                None,
+            ))
+            .unwrap();
+
+        handler
+            .queue_message(QueuedMessage::new(
+                MessageType::Ping(2),
+                MessagePriority::High,
+                None,
+            ))
+            .unwrap();
+
+        handler
+            .queue_message(QueuedMessage::new(
+                MessageType::Ping(3),
+                MessagePriority::Normal,
+                None,
+            ))
+            .unwrap();
 
         // Dequeue should return high priority first
         if let Some(msg) = handler.dequeue_next_message() {
@@ -446,7 +450,7 @@ mod tests {
             MessageType::Ping(123),
             None, // All peers
         );
-        
+
         assert_eq!(broadcast_count, 3);
         assert_eq!(broadcast_manager.get_active_broadcasts_count(), 1);
 

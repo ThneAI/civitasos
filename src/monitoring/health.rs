@@ -1,15 +1,15 @@
 //! Health checks and system status monitoring for CivitasOS
 
-use std::collections::HashMap;
-use std::time::{SystemTime, UNIX_EPOCH, Duration};
-use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::sync::RwLock;
 
-use super::{HealthStatus, HealthReport};
-use crate::execution::ExecutionEngine;
-use crate::state::StateStore;
+use super::{HealthReport, HealthStatus};
 use crate::consensus::ConsensusEngine;
+use crate::execution::ExecutionEngine;
 use crate::governance::GovernanceEngine;
+use crate::state::StateStore;
 
 /// Health check result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,12 +45,12 @@ impl HealthChecker {
     /// Perform all registered health checks
     pub async fn perform_checks(&self) -> Vec<HealthCheckResult> {
         let mut results = Vec::new();
-        
+
         for (name, check) in &self.checks {
             let start_time = std::time::Instant::now();
             let result = check.check().await;
             let duration = start_time.elapsed().as_millis() as u64;
-            
+
             results.push(HealthCheckResult {
                 component: name.clone(),
                 status: result.status,
@@ -62,7 +62,7 @@ impl HealthChecker {
                 response_time_ms: duration,
             });
         }
-        
+
         results
     }
 
@@ -70,14 +70,13 @@ impl HealthChecker {
     pub async fn generate_report(&self) -> HealthReport {
         let check_results = self.perform_checks().await;
         let mut report = HealthReport::new();
-        
+
         // Map individual check results to component statuses
         for result in &check_results {
-            report.component_status.insert(
-                result.component.clone(),
-                result.status.clone()
-            );
-            
+            report
+                .component_status
+                .insert(result.component.clone(), result.status.clone());
+
             if matches!(result.status, HealthStatus::Critical) {
                 report.overall_status = HealthStatus::Critical;
                 report.error_count += 1;
@@ -85,17 +84,19 @@ impl HealthChecker {
                 if !matches!(report.overall_status, HealthStatus::Critical) {
                     report.overall_status = HealthStatus::Warning;
                 }
-                report.warnings.push(format!("{}: {}", result.component, result.message));
-            } else if matches!(result.status, HealthStatus::Healthy) {
-                if matches!(report.overall_status, HealthStatus::Unknown) {
-                    report.overall_status = HealthStatus::Healthy;
-                }
+                report
+                    .warnings
+                    .push(format!("{}: {}", result.component, result.message));
+            } else if matches!(result.status, HealthStatus::Healthy)
+                && matches!(report.overall_status, HealthStatus::Unknown)
+            {
+                report.overall_status = HealthStatus::Healthy;
             }
         }
-        
+
         // Update the last report
         *self.last_report.write().await = Some(report.clone());
-        
+
         report
     }
 
@@ -137,16 +138,16 @@ impl HealthCheck for ExecutionHealthCheck {
         // Perform a simple execution test
         // We can't clone ExecutionEngine, so we'll create a new instance for testing
         let mut test_engine = ExecutionEngine::new(1000000); // Use default gas limit
-        
+
         // Set up a minimal test program
         let program = vec![
-            crate::execution::OpCode::ADD(0, 1, 2),  // r0 = r1 + r2
+            crate::execution::OpCode::ADD(0, 1, 2), // r0 = r1 + r2
         ];
-        
+
         // Set registers for the test
         test_engine.context.registers[1] = 10;
         test_engine.context.registers[2] = 20;
-        
+
         match test_engine.execute_program(program) {
             Ok(result) => {
                 if result.success && test_engine.context.registers[0] == 30 {
@@ -173,18 +174,16 @@ impl HealthCheck for ExecutionHealthCheck {
                     }
                 }
             }
-            Err(e) => {
-                HealthCheckResult {
-                    component: "execution_engine".to_string(),
-                    status: HealthStatus::Critical,
-                    message: format!("Execution engine error: {:?}", e),
-                    timestamp: SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs(),
-                    response_time_ms: 0,
-                }
-            }
+            Err(e) => HealthCheckResult {
+                component: "execution_engine".to_string(),
+                status: HealthStatus::Critical,
+                message: format!("Execution engine error: {:?}", e),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                response_time_ms: 0,
+            },
         }
     }
 }
@@ -206,11 +205,11 @@ impl HealthCheck for StateHealthCheck {
         // Perform a state operation test
         let test_key = "health_check_test".to_string();
         let test_value = "test_value".to_string();
-        
+
         // Try to store and retrieve a value
         let mut store = self.store.clone();
         store.put(test_key.clone(), test_value.clone());
-        
+
         if let Some(retrieved) = store.get(&test_key) {
             if retrieved.value == test_value {
                 HealthCheckResult {
@@ -279,9 +278,9 @@ impl HealthCheck for ConsensusHealthCheck {
                 success: true,
                 state_diffs: vec![],
                 trace_hash: "test_trace".to_string(),
-            }
+            },
         );
-        
+
         match result {
             Ok(validation_result) => {
                 if validation_result {
@@ -308,18 +307,16 @@ impl HealthCheck for ConsensusHealthCheck {
                     }
                 }
             }
-            Err(e) => {
-                HealthCheckResult {
-                    component: "consensus_engine".to_string(),
-                    status: HealthStatus::Critical,
-                    message: format!("Consensus engine error: {}", e),
-                    timestamp: SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs(),
-                    response_time_ms: 0,
-                }
-            }
+            Err(e) => HealthCheckResult {
+                component: "consensus_engine".to_string(),
+                status: HealthStatus::Critical,
+                message: format!("Consensus engine error: {}", e),
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs(),
+                response_time_ms: 0,
+            },
         }
     }
 }
@@ -340,15 +337,18 @@ impl HealthCheck for GovernanceHealthCheck {
     async fn check(&self) -> HealthCheckResult {
         // Check if governance engine can perform basic operations
         let result = self.engine.get_active_constitutional_rules();
-        
+
         HealthCheckResult {
             component: "governance_engine".to_string(),
             status: if result.is_empty() {
-                HealthStatus::Warning  // Not necessarily unhealthy, just no active rules
+                HealthStatus::Warning // Not necessarily unhealthy, just no active rules
             } else {
                 HealthStatus::Healthy
             },
-            message: format!("Governance engine operational, {} active rules", result.len()),
+            message: format!(
+                "Governance engine operational, {} active rules",
+                result.len()
+            ),
             timestamp: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
@@ -380,7 +380,7 @@ impl HealthCheck for ResourceHealthCheck {
     async fn check(&self) -> HealthCheckResult {
         // Note: This is a simplified resource check
         // In a real system, you would use system APIs to get actual resource usage
-        
+
         // For now, we'll return healthy as a placeholder
         HealthCheckResult {
             component: "resource_usage".to_string(),
@@ -403,10 +403,10 @@ mod tests {
     #[tokio::test]
     async fn test_health_checker() {
         let mut checker = HealthChecker::new(Duration::from_secs(30));
-        
+
         // Add a simple test check
         checker.add_check("test_component".to_string(), Box::new(TestHealthCheck {}));
-        
+
         let results = checker.perform_checks().await;
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].component, "test_component");
@@ -417,14 +417,14 @@ mod tests {
     async fn test_health_report_generation() {
         let checker = HealthChecker::new(Duration::from_secs(30));
         let report = checker.generate_report().await;
-        
+
         assert!(report.timestamp > 0);
         assert_eq!(report.overall_status, HealthStatus::Unknown); // No checks performed
     }
 
     // Test health check implementation for testing purposes
     struct TestHealthCheck;
-    
+
     #[async_trait::async_trait]
     impl HealthCheck for TestHealthCheck {
         async fn check(&self) -> HealthCheckResult {
@@ -446,7 +446,7 @@ mod tests {
         let store = StateStore::new();
         let check = StateHealthCheck::new(store);
         let result = check.check().await;
-        
+
         assert_eq!(result.component, "state_store");
         assert_eq!(result.status, HealthStatus::Healthy);
     }
