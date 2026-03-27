@@ -2,12 +2,14 @@
 //! Provides performance metrics, system health checks, and security auditing
 
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
 
 pub mod metrics;
+use std::sync::atomic::{AtomicU64, Ordering};
 pub mod health;
 pub mod security;
 
@@ -59,7 +61,7 @@ pub struct PerformanceMonitor {
     max_metrics_history: usize,
     last_execution_time: std::time::Instant,
     execution_times: Vec<f64>,
-    execution_count: u64,
+    execution_count: AtomicU64,
 }
 
 impl PerformanceMonitor {
@@ -69,14 +71,14 @@ impl PerformanceMonitor {
             max_metrics_history,
             last_execution_time: std::time::Instant::now(),
             execution_times: Vec::new(),
-            execution_count: 0,
+            execution_count: AtomicU64::new(0),
         }
     }
 
     /// Record execution metrics
     pub async fn record_execution(&mut self, execution_result: &ExecutionResult) {
         self.execution_times.push(execution_result.gas_used as f64); // Using gas as a proxy for execution time
-        self.execution_count += 1;
+        self.execution_count.fetch_add(1, Ordering::Relaxed);
     }
 
     /// Calculate average execution time
@@ -90,12 +92,12 @@ impl PerformanceMonitor {
     }
 
     /// Collect current system metrics
-    pub async fn collect_metrics(&mut self) -> SystemMetrics {
+    pub async fn collect_metrics(&self) -> SystemMetrics {
         let mut metrics = SystemMetrics::new();
         
         // Get current averages
         metrics.avg_execution_time = self.calculate_avg_execution_time();
-        metrics.execution_count = self.execution_count;
+        metrics.execution_count = self.execution_count.load(Ordering::Relaxed);
         
         // Add to metrics history
         let mut metrics_history = self.metrics_history.write().await;
@@ -418,7 +420,7 @@ mod tests {
         }
         
         let metrics = monitor.collect_metrics().await;
-        assert_eq!(monitor.execution_count, 10);
+        assert_eq!(monitor.execution_count.load(Ordering::Relaxed), 10);
     }
 
     #[test]
