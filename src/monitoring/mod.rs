@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
 
 pub mod metrics;
-use std::sync::atomic::{AtomicU64, Ordering};
 pub mod health;
 pub mod security;
 
