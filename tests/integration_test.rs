@@ -56,13 +56,17 @@ fn test_full_integration() {
         votes_for: 0,
         votes_against: 0,
         total_stake_voted: 0,
+        minimum_stake_threshold: 1000,
+        quorum_met: false,
+        approval_percentage: 0,
+        proposer_stake: 2000,
     };
     
     let proposal_id = governance_engine.create_proposal(proposal, 2000).unwrap();
     println!("✓ Created governance proposal: {}", proposal_id);
     
     // 9. 投票
-    governance_engine.cast_vote(&proposal_id, "validator1".to_string(), true, 1000).unwrap();
+    governance_engine.vote(&proposal_id, "validator1".to_string(), true, 1000).unwrap();
     println!("✓ Cast vote on proposal");
     
     // 10. 模拟时间过去（设置投票期已结束）

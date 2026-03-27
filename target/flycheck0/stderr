@@ -1,5 +1,5 @@
-   0.011562878s  INFO prepare_target{force=false package_id=civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos) target="civitasos"}: cargo::core::compiler::fingerprint: fingerprint error for civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos)/Check { test: false }/TargetInner { name: "civitasos", doc: true, ..: with_path("/home/cc/Desktop/code/AIPro/ais/civitasos/src/main.rs", Edition2021) }
-   0.011574059s  INFO prepare_target{force=false package_id=civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos) target="civitasos"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/cc/Desktop/code/AIPro/ais/civitasos/target/debug/.fingerprint/civitasos-7403c7e9df3413bf/bin-civitasos`
+   0.013760269s  INFO prepare_target{force=false package_id=civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos) target="governance_advanced_test"}: cargo::core::compiler::fingerprint: fingerprint error for civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos)/Check { test: true }/TargetInner { kind: "test", name: "governance_advanced_test", benched: false, ..: with_path("/home/cc/Desktop/code/AIPro/ais/civitasos/tests/governance_advanced_test.rs", Edition2021) }
+   0.013774826s  INFO prepare_target{force=false package_id=civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos) target="governance_advanced_test"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/cc/Desktop/code/AIPro/ais/civitasos/target/debug/.fingerprint/civitasos-b9e415d13694ba91/test-integration-test-governance_advanced_test`
 
 Caused by:
     No such file or directory (os error 2)
@@ -43,8 +43,8 @@ Stack backtrace:
   25: __libc_start_main_impl
              at ./csu/../csu/libc-start.c:360:3
   26: <unknown>
-   0.043488254s  INFO prepare_target{force=false package_id=civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos) target="civitasos"}: cargo::core::compiler::fingerprint: fingerprint error for civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos)/Check { test: true }/TargetInner { name: "civitasos", doc: true, ..: with_path("/home/cc/Desktop/code/AIPro/ais/civitasos/src/main.rs", Edition2021) }
-   0.043498714s  INFO prepare_target{force=false package_id=civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos) target="civitasos"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/cc/Desktop/code/AIPro/ais/civitasos/target/debug/.fingerprint/civitasos-b9d1310ee3a481d7/test-bin-civitasos`
+   0.046200500s  INFO prepare_target{force=false package_id=civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos) target="integration_test"}: cargo::core::compiler::fingerprint: fingerprint error for civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos)/Check { test: true }/TargetInner { kind: "test", name: "integration_test", benched: false, ..: with_path("/home/cc/Desktop/code/AIPro/ais/civitasos/tests/integration_test.rs", Edition2021) }
+   0.046213494s  INFO prepare_target{force=false package_id=civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos) target="integration_test"}: cargo::core::compiler::fingerprint:     err: failed to read `/home/cc/Desktop/code/AIPro/ais/civitasos/target/debug/.fingerprint/civitasos-e4450d8e0b3bd081/test-integration-test-integration_test`
 
 Caused by:
     No such file or directory (os error 2)
@@ -89,4 +89,6 @@ Stack backtrace:
              at ./csu/../csu/libc-start.c:360:3
   26: <unknown>
     Checking civitasos v0.1.0 (/home/cc/Desktop/code/AIPro/ais/civitasos)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s
+error: could not compile `civitasos` (test "integration_test") due to 3 previous errors; 2 warnings emitted
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `civitasos` (test "governance_advanced_test") due to 5 previous errors; 1 warning emitted

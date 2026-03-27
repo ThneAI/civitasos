@@ -44,6 +44,7 @@ pub enum ProposalType {
 }
 
 // 共识引擎
+#[derive(Clone)]
 pub struct ConsensusEngine {
     pub validators: Vec<Validator>,
     pub proposals: Vec<ConsensusProposal>,
